@@ -79,7 +79,10 @@ export function useAgentChat() {
     creationStepIndex.value = steps.value.length - 1
   }
 
-  async function sendAgentMessage(prompt: string, opts: SendAgentMessageOptions = {}): Promise<void> {
+  async function sendAgentMessage(
+    prompt: string,
+    opts: SendAgentMessageOptions = {}
+  ): Promise<void> {
     const cleanPrompt = prompt.trim()
     if (!cleanPrompt || isLoading.value || isCreating.value) return
 
@@ -137,8 +140,8 @@ export function useAgentChat() {
         },
         body: JSON.stringify({
           prompt: cleanPrompt,
-          tools: opts.tools ?? [],
-          skills: opts.skills ?? [],
+          // tools: opts.tools ?? [],
+          // skills: opts.skills ?? [],
           history,
         }),
         signal: controller.signal,

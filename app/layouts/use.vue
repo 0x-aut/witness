@@ -3,13 +3,14 @@ import { ref } from "vue";
 import { SmoothCorners } from "@lisse/vue";
 import {
   Inbox,
-  FolderOpen,
+  FolderKey,
   Cloud,
   Vault,
   ChevronDown,
   SquarePen,
   Settings,
   Bot,
+  BriefcaseBusiness,
 } from "@lucide/vue";
 
 const route = useRoute();
@@ -21,12 +22,12 @@ const navigation = [
     name: "Inbox",
     to: `/${username}/inbox`,
     icon: Inbox,
-    tooltip: "Review important messages and responses related to your cases.",
+    tooltip: "Review important messages and notifications related to your cases.",
   },
   {
     name: "Cases",
     to: `/${username}/cases`,
-    icon: FolderOpen,
+    icon: BriefcaseBusiness,
     tooltip: "Track the issues you're working to resolve.",
   },
   {
@@ -38,7 +39,7 @@ const navigation = [
   {
     name: "Vault",
     to: `/${username}/vault`,
-    icon: Vault,
+    icon: FolderKey,
     tooltip: "Store important documents, evidence, research, and case results.",
   },
 ];

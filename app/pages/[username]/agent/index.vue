@@ -1,7 +1,12 @@
 <script setup lang="ts">
 definePageMeta({
-  layout: "use"
+  layout: "use",
 })
+
+useSeoMeta({
+  title: "New Chat"
+})
+
 </script>
 
 <template>

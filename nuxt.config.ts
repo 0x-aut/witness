@@ -12,10 +12,16 @@ export default defineNuxtConfig({
 
   css: ['@/assets/css/main.css'],
 
-  modules: ['@nuxt/fonts', '@nuxt/image', '@nuxt/scripts', '@nuxtjs/device', 'convex-nuxt', 'v-gsap-nuxt'],
+  modules: ['@nuxt/fonts', '@nuxt/image', '@nuxt/scripts', '@nuxtjs/device', 'convex-nuxt', 'v-gsap-nuxt', '@comark/nuxt'],
 
   convex: {
     url: process.env.CONVEX_URL
+  },
+  
+  runtimeConfig: {
+    bedrockBaseUrl: '',
+    bedrockApiKey: '',
+    bedrockModel: '',
   },
 
   fonts: {

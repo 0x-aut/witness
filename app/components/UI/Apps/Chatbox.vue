@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SmoothCorners } from "@lisse/vue";
+import { SmoothCorners, useSmoothCorners } from "@lisse/vue";
 import { ArrowUp, Plus, X } from "@lucide/vue";
 import { useAgentChat } from "~/composables/useAgentChat";
 
@@ -15,6 +15,7 @@ const {
   sendAgentMessage,
   abortAgentCreation,
 } = useAgentChat();
+
 
 const route = useRoute();
 
@@ -158,29 +159,24 @@ watch(message, () => nextTick(adjustHeight));
           :key="chatMessage.id"
           :data-index="idx"
           :class="[
-            'flex',
+            'flex w-full',
             chatMessage.role === 'user' ? 'justify-end' : 'justify-start',
             idx > 0 ? 'mt-4' : '',
           ]"
         >
-          <SmoothCorners
+          <UIElementsUserMessageBubble
             v-if="chatMessage.role === 'user'"
-            as-child
-            :corners="{ radius: 18, smoothing: 0.6 }"
-          >
-            <span
-              class="unmodified-font-sans max-w-[80%] whitespace-pre-wrap bg-[#0A84FF] px-3.5 py-2 text-sm leading-6 text-white"
-            >
-              {{ chatMessage.content }}
-            </span>
-          </SmoothCorners>
-
-          <p
+            :content="chatMessage.content"
+          />
+        
+          <Markdown
             v-else
-            class="unmodified-font-sans max-w-[85%] whitespace-pre-wrap text-sm leading-6 text-[#121212]"
+            :streaming="isLoading"
+            :options="{ autoUnwrap: true, autoClose: true }"
+            class="unmodified-font-sans assistant-markdown"
           >
             {{ chatMessage.content }}
-          </p>
+          </Markdown>
         </div>
       </GSAPTransition>
 
