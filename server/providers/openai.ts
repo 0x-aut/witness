@@ -25,8 +25,8 @@ export function getOpenAIClient(): OpenAI {
   // })
 
   client = new OpenAI({
-    apiKey: "sk-ws-H.DHRIHXX.KJ2Q.MEYCIQDHzo5WZ464ueMzloZry0dmsCuq1oCilXbstSjMbzz-MgIhAO3E_1F1F2qYkj0F7oABKAriTiha1iMWdq1mEB_cJ2XF",
-    baseURL: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+    apiKey: config.qwenApiKey,
+    baseURL: config.qwenBaseUrl
   })
 
   return client
