@@ -22,6 +22,8 @@ export default defineNuxtConfig({
     bedrockBaseUrl: '',
     bedrockApiKey: '',
     bedrockModel: '',
+    qwenApiKey: '',
+    qwenBaseUrl: '',
   },
 
   fonts: {
