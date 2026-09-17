@@ -26,7 +26,7 @@ export function getOpenAIClient(): OpenAI {
 
   client = new OpenAI({
     apiKey: config.qwenApiKey,
-    baseURL: config.qwenBaseUrl
+    baseURL: config.qwenBaseUrl,
   })
 
   return client
