@@ -13,6 +13,8 @@ import {
   BriefcaseBusiness,
 } from "@lucide/vue";
 
+
+
 const route = useRoute();
 
 const username = route.params.username as string;
@@ -50,7 +52,7 @@ const navbar = computed(() => {
 
   if (path.startsWith(`/${username}/inbox`)) {
     return {
-      label: "Inbox",
+      // label: "Inbox",
     };
   }
 
@@ -91,7 +93,7 @@ const navbar = computed(() => {
 
 <template>
   <main
-    class="unmodified-font-sans flex h-screen w-full justify-start border border-black bg-[#F4F4F4] p-2.5"
+    class="unmodified-font-sans flex h-screen w-full justify-start bg-[#F4F4F4] p-2.5"
   >
     <aside class="flex w-55 shrink-0 flex-col py-2.5 pr-2.5 max-md:hidden">
       <!-- USER / TOP ACTIONS -->
@@ -154,7 +156,7 @@ const navbar = computed(() => {
               />
             </button>
           </SmoothCorners>
-          <UIAppsNavTooltip text="Create a new agent." />
+          <UIElementsNavTooltip text="Create a new agent." />
         </div>
       </div>
 
@@ -201,7 +203,7 @@ const navbar = computed(() => {
               </span>
             </NuxtLink>
           </SmoothCorners>
-          <UIAppsNavTooltip :text="item.tooltip" />
+          <UIElementsNavTooltip :text="item.tooltip" />
         </div>
       </nav>
 
@@ -243,7 +245,7 @@ const navbar = computed(() => {
               </span>
             </NuxtLink>
           </SmoothCorners>
-          <UIAppsNavTooltip text="Manage your Accord preferences." />
+          <UIElementsNavTooltip text="Manage your Accord preferences." />
         </div>
       </div>
     </aside>
@@ -254,6 +256,7 @@ const navbar = computed(() => {
     >
       <!-- MAIN NAVBAR -->
       <nav
+        v-if="navbar.label"
         class="flex h-11 w-full shrink-0 items-center justify-between border-b border-[#E3E3E3] px-3"
       >
         <!-- LEFT SIDE -->

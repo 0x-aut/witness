@@ -10,7 +10,7 @@ useSeoMeta({
 </script>
 
 <template>
-  <div class="font-sans unmodified-font-sans mx-auto flex h-full w-full max-w-160 flex-col px-6 py-8">
+  <div class="font-sans unmodified-font-sans mx-auto flex h-full w-full flex-col px-1 py-0">
     <UIAppsChatbox class="min-h-0 flex-1" />
   </div>
 </template>
