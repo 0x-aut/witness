@@ -14,6 +14,7 @@
     "@comark/nuxt": "0.7.0",
     "@composio/core": "^0.18.1",
     "@composio/openai-agents": "^0.11.0",
+    "@convex-dev/auth": "2.0.0-alpha.2",
     "@firecrawl/firecrawl-convex": "^0.1.1",
     "@google/genai": "^2.23.0",
     "@lisse/vue": "^0.7.2",
@@ -24,15 +25,20 @@
     "@nuxtjs/device": "4.0.0",
     "@openai/agents": "^0.18.0",
     "@tailwindcss/vite": "^4.3.3",
+    "better-auth": "^1.7.5",
     "convex": "^1.45.0",
     "convex-nuxt": "0.1.5",
     "convex-vue": "^0.1.5",
     "nuxt": "^4.5.2",
     "openai": "^7.17.0",
+    "pg": "^8.23.0",
     "tailwindcss": "^4.3.3",
     "v-gsap-nuxt": "1.5.12",
     "vue": "^3.5.42",
     "vue-router": "^5.3.1",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.23.1"
   }
 }

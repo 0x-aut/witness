@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: 'set' })
+definePageMeta({ layout: 'set', middleware: "auth", })
 
 useSeoMeta({
   title: "Settings"

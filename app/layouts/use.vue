@@ -12,8 +12,9 @@ import {
   Bot,
   BriefcaseBusiness,
 } from "@lucide/vue";
+import { useSession } from "@@/lib/auth-client";
 
-
+const { data: session } = await useSession(useFetch);
 
 const route = useRoute();
 
@@ -114,7 +115,7 @@ const navbar = computed(() => {
                 class="flex h-6 w-6 items-center justify-center bg-[#273BE2] p-0.5"
               >
                 <span class="font-sans text-sm text-white">
-                  A
+                  {{ session?.user.displayUsername[0] }}
                 </span>
               </div>
             </SmoothCorners>
@@ -122,7 +123,7 @@ const navbar = computed(() => {
               <span
                 class="font-sans text-sm font-medium text-[#121212]"
               >
-                Username
+                {{ session?.user.displayUsername }}
               </span>
               <ChevronDown
                 :size="15"

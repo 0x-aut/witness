@@ -24,6 +24,9 @@ export default defineNuxtConfig({
     bedrockModel: '',
     qwenApiKey: '',
     qwenBaseUrl: '',
+    betterAuthSecret: '',
+    betterAuthUrl: '',
+    betterAuthDatabase: '',
   },
 
   fonts: {

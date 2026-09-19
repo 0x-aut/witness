@@ -3,6 +3,9 @@ import { SmoothCorners, useSmoothCorners } from "@lisse/vue";
 import { ArrowUp, Plus, X } from "@lucide/vue";
 import { useAgentChat } from "~/composables/useAgentChat";
 
+const props = defineProps<{ displayName: string | null | undefined, id?: string; required?: boolean; placeholder?: string }>()
+
+
 // Chat state lives in the composable: page -> useAgentChat -> /api/agent/chat.
 // The loading pill (`currentStepText`) is driven by backend `step` events,
 // falling back to a local rotation only while the backend sends none.
@@ -210,7 +213,7 @@ watch(message, () => nextTick(adjustHeight));
             <h1
               class="unmodified-font-sans m-0 mb-2 text-[26px] font-medium tracking-[-0.02em] text-[#121212]"
             >
-              {{ username.charAt(0).toUpperCase() + username.slice(1) }} what went wrong?
+              {{ props.displayName }} what went wrong?
             </h1>
           </div>
         </GSAPTransition>

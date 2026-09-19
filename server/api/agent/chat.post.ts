@@ -5,6 +5,8 @@ import {
   createEventStream,
 } from "h3"
 
+import { auth } from "@@/lib/auth";
+
 import { streamAgentChat } from "@@/server/services/agent/chat"
 
 interface AgentHistoryItem {
@@ -38,6 +40,12 @@ function encodeEvent(name: string, data: unknown) {
 }
 
 export default defineEventHandler(async (event) => {
+
+  const session = await auth.api.getSession({ headers: event.headers })
+  if (!session?.user) {
+    throw createError({ statusCode: 401, statusMessage: "Unauthorized" })
+  }
+  
   const body = await readBody<AgentChatBody>(event)
 
   const prompt =

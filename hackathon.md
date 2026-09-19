@@ -18,7 +18,7 @@ The application is being built with Nuxt and TypeScript. Final hosting will be s
 
 ## Build Status
 
-**Stage:** Early development
+**Stage:** Core development
 
 **Live app:** Not deployed
 
@@ -39,10 +39,12 @@ The application is being built with Nuxt and TypeScript. Final hosting will be s
 * Composio
 * Comark
 * Google GenAI SDK
+* Lisse / SmoothCorners
+* GSAP
 
-The current repository includes the Convex Nuxt integration, AgentMail and Firecrawl Convex packages, Comark's Nuxt integration, Composio integrations, OpenAI Agents, Google GenAI, and the OpenAI SDK.
+The project includes Convex and the Convex Nuxt integration, along with the AgentMail and Firecrawl Convex packages.
 
-The current development inference provider is **Qwen through an OpenAI-compatible API using the OpenAI SDK**. Bedrock was investigated as an inference provider but GPT-5.6 Sol was not available to the current AWS account, so it is not currently the active development provider.
+The current development inference path uses Qwen through an OpenAI-compatible API with the OpenAI SDK. OpenAI Agents, Composio, Google GenAI, and Comark are also included as part of the foundation for the upcoming agent and integration work.
 
 ## Product Direction
 
@@ -90,7 +92,7 @@ The primary navigation consists of:
 
 Cases are the central representation of problems being worked on.
 
-The Inbox is intended for important case-related communications, while the Vault is intended to hold documents, evidence, research, and case results.
+The Inbox is intended to serve as the user's attention center for important case-related communications and other notifications, while the Vault is intended to hold documents, evidence, research, and case results.
 
 The initial agent experience was implemented around a simple problem-first interaction.
 
@@ -110,32 +112,23 @@ A compact loading-pill interaction was implemented for agent progress.
 
 The interface communicates progress using short, human-readable states rather than exposing internal agent operations.
 
-Examples include:
-
-* Looking into what happened…
-* Finding out what you can do…
-* Checking the details…
-* Putting together your next steps…
-* Working on it…
-* Getting things moving…
-
 The product language was shaped around ordinary people dealing with real-life problems and intentionally avoids leading with technical concepts such as agents, tools, skills, orchestration, or enterprise workflows.
 
 Convex is intended to serve as the central realtime backend and state layer for Witness, with planned responsibilities including case persistence, agent state, realtime updates, inbox state, notifications, document metadata and storage, communication state, agent progress, user-action requirements, and asynchronous work.
 
 ---
 
-## September 17, 2026 — Agent streaming, provider setup, Comark, and agent tooling foundation
+## September 17, 2026 — Agent streaming, model provider foundation, and assistant rendering
 
 The first real server-side agent chat path was implemented.
 
-The frontend now sends prompts and conversation history to:
+The frontend sends prompts and conversation history to:
 
 ```text
 POST /api/agent/chat
 ```
 
-The Nuxt server route validates the request and streams Server-Sent Events back to the client.
+The Nuxt server route validates the request and returns a Server-Sent Event stream to the client.
 
 The streaming contract was established around:
 
@@ -145,9 +138,9 @@ The streaming contract was established around:
 * `error` events
 * `done` events
 
-The Witness loading pill is now designed to consume backend `step` events so its displayed text can represent what the agent is actually doing rather than relying entirely on local loading animation.
+The loading pill consumes backend `step` events so its displayed text can reflect the current Witness processing stage instead of relying entirely on local loading animation.
 
-The `useAgentChat` composable was cleaned up around the streaming contract and now handles:
+The `useAgentChat` composable was structured around:
 
 * Conversation history
 * Streamed assistant responses
@@ -158,7 +151,7 @@ The `useAgentChat` composable was cleaned up around the streaming contract and n
 * Assistant message accumulation
 * Optional future `tools` and `skills` parameters
 
-Tools and skills remain optional and are currently not sent as part of the basic request flow because the initial goal is to establish the core agent response path first.
+Tools and skills remain optional in the client request and are not required for the initial chat flow.
 
 The server code was separated into API, agent-service, and provider responsibilities:
 
@@ -174,24 +167,13 @@ server/
     └── openai.ts
 ```
 
-The agent service contains the initial Witness system prompt and streams model output through the OpenAI SDK.
+The first agent service implementation provides the Witness system instructions and streams model output through the OpenAI SDK.
 
-The current system prompt instructs the model to:
+The system instructions establish the initial Witness behavior: understand the user's problem, identify important facts, explain what may be happening, suggest useful next steps, avoid inventing facts or laws, distinguish known information from information requiring verification, and respond using clean readable Markdown.
 
-* Understand the user's real-world problem
-* Identify important facts
-* Explain what may be happening
-* Suggest useful next steps
-* Avoid inventing laws, policies, facts, or deadlines
-* Distinguish known information from information requiring verification
-* Respond in clean Markdown
-* Use natural paragraph spacing
-* Use restrained headings and lists
-* Avoid raw HTML and code output
+The current development model is Qwen through an OpenAI-compatible API using the OpenAI SDK.
 
-The current development model is Qwen through an OpenAI-compatible API using the OpenAI SDK. This is being used to validate the streaming agent experience while keeping the provider boundary independent of the frontend.
-
-Bedrock was evaluated as an alternative inference provider. GPT-5.6 Sol was not available to the current AWS account despite the Bedrock model being documented, so the development path was switched to Qwen while preserving the provider abstraction for future model changes.
+Bedrock was investigated as an inference option, but the selected Bedrock model was not available to the current AWS account, so development continues with Qwen while retaining a provider abstraction for future model changes.
 
 The Nuxt development workflow was configured to explicitly load `.env.local`:
 
@@ -199,13 +181,11 @@ The Nuxt development workflow was configured to explicitly load `.env.local`:
 nuxt dev --dotenv .env.local
 ```
 
-Nuxt runtime configuration was prepared for server-side provider configuration, with Bedrock values represented through runtime config rather than exposed client-side configuration.
+The project uses the root-level Nuxt `server/` directory for Nitro server code, with the project's `@@` root alias used for server imports where required by the current setup.
 
-The project uses the root-level Nuxt `server/` directory for Nitro server code. Root-level imports for server files use the `@@` alias where required by the current project structure.
+Comark was added for assistant response rendering.
 
-Comark was added as the Markdown renderer for assistant responses.
-
-Assistant responses are now intended to render as structured Markdown rather than plain text, including:
+Assistant output is now rendered as Markdown rather than plain text, with dedicated styling for:
 
 * Paragraphs
 * Headings
@@ -220,17 +200,60 @@ Assistant responses are now intended to render as structured Markdown rather tha
 * Tables
 * Images
 
-A dedicated `assistant-markdown` styling system was added to create a conversational, ChatGPT-like reading rhythm.
+Assistant Markdown typography was tuned toward a conversational, ChatGPT-like reading experience, with generous paragraph spacing, comfortable line height, tighter list spacing, and dedicated styling for structured content.
 
-Paragraphs were given larger separation and comfortable line height, while list items were intentionally kept tighter so lists do not look excessively spaced.
+The Markdown styling was corrected so the assistant styles apply globally rather than being restricted to the reduced-motion media query.
 
-The Markdown styling was moved into the normal global stylesheet rather than remaining inside the reduced-motion media query, ensuring the assistant formatting applies normally while reduced-motion preferences remain limited to animation behavior.
+The chat user-message bubble was refined to use Lisse's `useSmoothCorners` composable so multiline messages remain correct flex items while retaining smooth-corner rendering.
 
-The chat user-message bubble was refined to use Lisse's `useSmoothCorners` approach so multiline user messages remain proper flex items while retaining smooth-corner rendering.
+The repository dependency foundation was expanded to include OpenAI Agents, Composio, Google GenAI, and the Comark Nuxt integration in preparation for the real agent/tooling phase.
 
-Composio and OpenAI Agents dependencies are now present in the repository as preparation for the next agent phase. The actual Composio-powered agent execution loop has not yet been implemented.
+---
 
-Google GenAI is also present as an available provider dependency for future experimentation, but Qwen through the OpenAI SDK is the current development inference path.
+## September 18, 2026 — Inbox and Settings UI foundations
+
+The Inbox UI skeleton was implemented.
+
+Inbox is now treated as the user's **notification stream**, rather than as a conventional email client. External emails are one type of notification and will eventually be presented in a richer email-like form within the same Inbox.
+
+The initial Inbox layout includes:
+
+* Inbox navigation/header
+* Notification list structure
+* Compact notification titles
+* Single-line truncated previews
+* Unread styling
+* Clickable notification rows
+* Selection controls
+* Star controls
+* An empty-state presentation for when no notification is selected
+
+The notification list was designed to stay compact and information-dense while preserving a clear distinction between the primary title and the supporting preview.
+
+The initial Inbox filter architecture was also explored around a reusable nested filter menu. The intended structure is a filter button in the Inbox navigation that opens filter categories, with individual filter categories opening their selectable options separately.
+
+The filter model is designed to support future notification types such as:
+
+* Emails
+* Alerts
+* Agent updates
+* Case updates
+
+and additional filtering dimensions such as source and status.
+
+The Settings area was established with its own nested layout and sidebar rather than reusing the main Witness navigation as the Settings navigation.
+
+This establishes the foundation for Settings sections including:
+
+* General
+* Personalization
+* Integrations
+* Notifications
+* Account
+
+The Settings work establishes the UI foundation for the upcoming personalization and integrations functionality.
+
+The next implementation phase moves from the completed UI foundations into the core Witness product: persistent Cases, Inbox data, agent creation and execution, Composio-powered tools, Convex state/realtime behavior, and the connections between Cases, Agents, and Inbox.
 
 ---
 
@@ -341,7 +364,7 @@ When updating this file:
 * Prefer concrete implementation details over vague claims.
 * When possible, verify progress against the repository and Git history.
 * Treat uncommitted local work as unverified until it is pushed or otherwise provided.
-* Security fixes should only be marked complete after the current public repository has been checked.
+* Distinguish current repository state from stale historical or cached repository data.
 
 ---
 
@@ -356,12 +379,14 @@ When updating this file:
 * [ ] Agent/task execution implemented
 * [ ] Composio-powered agent tools implemented
 * [ ] User-action flow implemented
-* [ ] Inbox implemented
+* [ ] Inbox backend implemented
+* [ ] Inbox content/detail view implemented
+* [ ] Inbox email integration implemented
+* [ ] Settings integrations implemented
+* [ ] Personalization and jurisdiction implemented
 * [ ] Vault implemented
-* [ ] Jurisdiction context implemented
 * [ ] Live deployment available
 * [ ] Public source repository
-* [ ] All exposed credentials removed and revoked
 * [ ] `hackathon.md` kept current
 * [ ] Demo video completed
 * [ ] Final submission completed
