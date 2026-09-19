@@ -10,7 +10,7 @@ const userPassword = ref<string>("");
 var isLoading = ref<boolean>(false);
 
 async function userSignIn() {
-  const { data, error } = await signIn.email({
+  const result = await signIn.email({
     email: userEmail.value,
     password: userPassword.value,
   }, {
@@ -24,6 +24,11 @@ async function userSignIn() {
       alert(ctx.error.message)
     }
   })
+  console.log("sign in:", result);
+  
+  const session = await authClient.getSession();
+  
+  console.log("session:", session);
   isLoading.value = false
   
 }

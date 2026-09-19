@@ -27,6 +27,10 @@ export default defineNuxtConfig({
     betterAuthSecret: '',
     betterAuthUrl: '',
     betterAuthDatabase: '',
+    siteUrl: '',
+    public: {
+      convexSiteUrl: process.env.CONVEX_SITE_URL,
+    },
   },
 
   fonts: {

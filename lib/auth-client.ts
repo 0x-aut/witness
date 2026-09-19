@@ -1,12 +1,42 @@
 import { createAuthClient } from "better-auth/vue";
-import { usernameClient } from "better-auth/client/plugins"
-import { inferAdditionalFields } from "better-auth/client/plugins";
-import type { auth } from "@@/lib/auth";
+import { inferAdditionalFields, usernameClient } from "better-auth/client/plugins";
+import {
+  convexClient,
+  crossDomainClient,
+} from "@convex-dev/better-auth/client/plugins";
+
+
+function getSiteUrl() {
+  const config = useRuntimeConfig()
+ 
+  return config.public.convexSiteUrl
+}
 
 export const authClient = createAuthClient({
-  plugins: [ 
+  baseURL: "https://resolute-avocet-407.convex.site",
+
+  plugins: [
     usernameClient(),
-    inferAdditionalFields<typeof auth>(), 
+
+    inferAdditionalFields({
+      user: {
+        country: {
+          type: "string",
+        },
+        state: {
+          type: "string",
+        },
+      },
+    }),
+
+    convexClient(),
+    crossDomainClient(),
   ],
 });
-export const { signIn, signUp, signOut, useSession } = authClient;
+
+export const {
+  signIn,
+  signUp,
+  signOut,
+  useSession,
+} = authClient;

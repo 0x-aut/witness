@@ -22,12 +22,13 @@ async function userSignUp() {
 
   const displayName = fullName.value.trim().split(/\s+/)[0]
   
-  const { data, error } = signUp.email({
+  const result = signUp.email({
     email: userEmail.value,
     password: userPassword.value,
     name: fullName.value,
     username: usernameInput.value,
     displayUsername: displayName,
+    country: "US",
     state: stateInput.value,
   }, {
     onRequest: (ctx) => {
@@ -40,6 +41,12 @@ async function userSignUp() {
       isLoading.value = false
     }
   })
+
+  console.log("sign up:", result);
+  
+  const session = await authClient.getSession();
+  
+  console.log("session:", session);
   isLoading.value = false
 }
 

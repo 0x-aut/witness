@@ -39,12 +39,18 @@ The application is being built with Nuxt and TypeScript. Final hosting will be s
 * Composio
 * Comark
 * Google GenAI SDK
+* Better Auth
+* PostgreSQL
 * Lisse / SmoothCorners
 * GSAP
 
 The project includes Convex and the Convex Nuxt integration, along with the AgentMail and Firecrawl Convex packages.
 
-The current development inference path uses Qwen through an OpenAI-compatible API with the OpenAI SDK. OpenAI Agents, Composio, Google GenAI, and Comark are also included as part of the foundation for the upcoming agent and integration work.
+The current development inference path uses **Qwen through an OpenAI-compatible API using the OpenAI SDK**.
+
+OpenAI Agents, Composio, Google GenAI, and Comark are also included as part of the foundation for the upcoming agent and integration work.
+
+Better Auth is being used for application authentication and user identity, with PostgreSQL as its current database.
 
 ## Product Direction
 
@@ -173,7 +179,7 @@ The system instructions establish the initial Witness behavior: understand the u
 
 The current development model is Qwen through an OpenAI-compatible API using the OpenAI SDK.
 
-Bedrock was investigated as an inference option, but the selected Bedrock model was not available to the current AWS account, so development continues with Qwen while retaining a provider abstraction for future model changes.
+Bedrock was investigated as an inference provider, but the selected Bedrock model was not available to the current AWS account, so development continues with Qwen while retaining a provider abstraction for future model changes.
 
 The Nuxt development workflow was configured to explicitly load `.env.local`:
 
@@ -230,7 +236,7 @@ The initial Inbox layout includes:
 
 The notification list was designed to stay compact and information-dense while preserving a clear distinction between the primary title and the supporting preview.
 
-The initial Inbox filter architecture was also explored around a reusable nested filter menu. The intended structure is a filter button in the Inbox navigation that opens filter categories, with individual filter categories opening their selectable options separately.
+The initial Inbox filter architecture was explored around a reusable nested filter menu. The intended structure is a filter button in the Inbox navigation that opens filter categories, with individual filter categories opening their selectable options separately.
 
 The filter model is designed to support future notification types such as:
 
@@ -253,11 +259,58 @@ This establishes the foundation for Settings sections including:
 
 The Settings work establishes the UI foundation for the upcoming personalization and integrations functionality.
 
-The next implementation phase moves from the completed UI foundations into the core Witness product: persistent Cases, Inbox data, agent creation and execution, Composio-powered tools, Convex state/realtime behavior, and the connections between Cases, Agents, and Inbox.
+The project then moved from the initial UI foundations toward implementing authentication and the core product architecture.
+
+---
+
+## September 19, 2026 — Authentication and user identity foundation
+
+Better Auth was integrated as the application authentication system for the Nuxt/Vue frontend.
+
+The server-side Better Auth configuration was established in the root `lib/auth.ts` module.
+
+Email and password authentication is enabled, with the username plugin included for Witness user identity.
+
+The Better Auth server is configured to use PostgreSQL through the `pg` package and server-side environment variables for the database connection, authentication URL, and secret.
+
+Additional user fields were introduced for the Witness personalization model:
+
+* `country`
+* `state`
+
+These are stored as part of the authenticated user profile and are intended to provide trusted location context to the application and future agent runs.
+
+A server-side user creation hook was added to validate geographic availability. The current implementation only allows users in the United States and requires a valid U.S. state value.
+
+The Better Auth client was integrated using the Vue client API, including the username client and inferred additional fields from the server auth configuration.
+
+A Nuxt catch-all authentication route was added at:
+
+```text
+server/api/auth/[...all].ts
+```
+
+which forwards requests to the Better Auth handler.
+
+This establishes authenticated user identity as the foundation for the next phase of Witness development, where Cases, Agents, Inbox data, integrations, and agent memory can be associated with individual users.
+
+The current location model is intentionally designed to begin with country and state information, with support for additional countries and finer-grained jurisdiction planned for a later stage.
 
 ---
 
 # Current Architecture Direction
+
+The current authentication and application direction is:
+
+```text
+Nuxt / Vue
+  ↓
+Better Auth
+  ↓
+Authenticated user
+  ↓
+Convex / application state
+```
 
 The current agent path is:
 
@@ -283,6 +336,9 @@ The broader intended architecture is:
 
 ```text
 Witness
+├── Better Auth
+│   └── User identity + profile
+│
 ├── Convex
 │   ├── Cases
 │   ├── Agents
@@ -301,7 +357,7 @@ Witness
 └── Nuxt frontend
 ```
 
-The model provider, agent runtime, and application state layers are intentionally kept separate so inference providers and agent tooling can evolve without restructuring the core Witness application.
+The model provider, agent runtime, application state, and authentication layers are intentionally kept separate so each can evolve without restructuring the entire application.
 
 ---
 
@@ -309,17 +365,19 @@ The model provider, agent runtime, and application state layers are intentionall
 
 The target end-to-end flow is:
 
-1. A user describes something that went wrong.
-2. Witness understands and structures the problem into a case.
-3. Relevant information and documents are collected.
-4. Witness researches the relevant organization, policy, procedure, or other public information.
-5. An agent determines useful next steps.
-6. Witness prepares a communication or action for the user.
-7. The user approves the proposed action.
-8. Witness sends the communication when appropriate.
-9. Responses are received and associated with the case.
-10. Convex updates the case, inbox, notifications, and agent state in realtime.
-11. The agent continues working or asks the user for something it needs.
+1. A user authenticates with Witness.
+2. The user provides the location information required by the application.
+3. A user describes something that went wrong.
+4. Witness understands and structures the problem into a case.
+5. Relevant information and documents are collected.
+6. Witness researches the relevant organization, policy, procedure, or other public information.
+7. An agent determines useful next steps.
+8. Witness prepares a communication or action for the user.
+9. The user approves the proposed action.
+10. Witness sends the communication when appropriate.
+11. Responses are received and associated with the case.
+12. Convex updates the case, inbox, notifications, and agent state in realtime.
+13. The agent continues working or asks the user for something it needs.
 
 This flow is intended to become the primary demonstration path for the final hackathon submission.
 
@@ -342,6 +400,7 @@ Planned Convex responsibilities include:
 * User-action requirements
 * Background and asynchronous work
 * Reactive UI updates
+* User-specific application state
 
 As these capabilities are implemented, this section should be updated with the concrete Convex features and components actually used by the application.
 
@@ -365,12 +424,14 @@ When updating this file:
 * When possible, verify progress against the repository and Git history.
 * Treat uncommitted local work as unverified until it is pushed or otherwise provided.
 * Distinguish current repository state from stale historical or cached repository data.
+* Security fixes should only be marked complete after the current public repository state has been checked.
 
 ---
 
 # Submission Checklist
 
 * [ ] Core Witness experience working
+* [x] Authentication foundation implemented
 * [ ] Convex realtime functionality demonstrated
 * [ ] OpenAI integration working
 * [ ] Firecrawl integration working
