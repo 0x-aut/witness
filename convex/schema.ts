@@ -55,24 +55,24 @@ export default defineSchema({
     .index("by_case_id", ["caseId"])
     .index("by_agent_id", ["agentId"]),
 
-  agentMessage: defineTable({
-    userId: v.string(),
-    caseId: v.id("cases"),
-    agentId: v.id("agents"),
-    threadId: v.id("agentThreads"),
+  // agentMessage: defineTable({
+  //   userId: v.string(),
+  //   caseId: v.id("cases"),
+  //   agentId: v.id("agents"),
+  //   threadId: v.id("agentThreads"),
 
-    role: v.union(
-      v.literal("user"),
-      v.literal("assistant"),
-      v.literal("tool"),
-    ),
+  //   role: v.union(
+  //     v.literal("user"),
+  //     v.literal("assistant"),
+  //     v.literal("tool"),
+  //   ),
 
-    content: v.string(),
-    metadata: v.optional(v.any()),
-  })
-    .index("by_case_id", ["caseId"])
-    .index("by_agent_id", ["agentId"])
-    .index("by_thread_id", ["threadId"]),
+  //   content: v.string(),
+  //   metadata: v.optional(v.any()),
+  // })
+  //   .index("by_case_id", ["caseId"])
+  //   .index("by_agent_id", ["agentId"])
+  //   .index("by_thread_id", ["threadId"]),
 
   inboxItems: defineTable({
     userId: v.string(),

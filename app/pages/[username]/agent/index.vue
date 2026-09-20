@@ -7,9 +7,9 @@ useSeoMeta({
   title: "New Chat"
 })
 
-import { useSession } from "@@/lib/auth-client";
+import { authClient } from "@@/lib/auth-client";
 
-const { data: session } = await useSession(useFetch);
+const { data: session } = await authClient.getSession();
 
 </script>
 

@@ -1,270 +1,484 @@
-import { computed, ref } from "vue"
+import { computed, ref, watch } from "vue";
+import { api } from "@@/convex/_generated/api";
 
 export interface AgentChatMessage {
-  id: number
-  role: "user" | "assistant"
-  content: string
+  id: string;
+  role: "user" | "assistant";
+  content: string;
 }
 
-export interface AgentHistoryItem {
-  role: "user" | "assistant"
-  content: string
+interface StreamState {
+  streamId: string;
+  order: number;
+  stepOrder: number;
+  content: string;
+}
+
+interface OptimisticAgentChatMessage extends AgentChatMessage {
+  optimisticId: string;
+  persistedOrder?: number;
 }
 
 export interface SendAgentMessageOptions {
-  tools?: string[]
-  skills?: string[]
-  signal?: AbortSignal
+  tools?: string[];
+  skills?: string[];
+  signal?: AbortSignal;
 }
 
-/** Shown in the creating pill until the backend streams its own `step` events. */
-const FALLBACK_STEPS = [
-  "Looking into what happened…",
-  "Checking the details…",
-  "Finding out what you can do…",
-  "Working on it…",
-]
-
-const FALLBACK_ROTATION_MS = 2000
-
-/**
- * Chat state for the new-agent page.
- *
- * Chain: `agent.vue` page -> this composable -> `/api/agent/chat`
- * (Nitro, holds the backend secret) -> FastAPI `{backend}/v1/agent/chat`.
- */
 export function useAgentChat() {
-  const messages = ref<AgentChatMessage[]>([])
-  const toolsUsed = ref<string[]>([])
-  const isLoading = ref(false)
-  const creationPhase = ref<"idle" | "creating">("idle")
-  const isCreating = computed(() => creationPhase.value === "creating")
-  const requestError = ref("")
+  const optimisticMessages =
+    ref<OptimisticAgentChatMessage[]>([]);
 
-  const steps = ref<string[]>([...FALLBACK_STEPS])
-  const creationStepIndex = ref(0)
-  const currentStepText = computed(() => steps.value[creationStepIndex.value] ?? steps.value[0]!)
-  const remoteSteps = ref(false)
-  const fallbackTimer = ref<ReturnType<typeof setInterval> | null>(null)
-  const abortController = ref<AbortController | null>(null)
+  const threadId = ref("");
 
-  function stopFallbackRotation() {
-    if (fallbackTimer.value) {
-      clearInterval(fallbackTimer.value)
-      fallbackTimer.value = null
+  const requestError = ref("");
+  const waitingForResponse = ref(false);
+  const toolsUsed = ref<string[]>([]);
+
+  const {
+    mutate: sendMessageMutation,
+    isPending: isMutationPending,
+  } = useConvexMutation(
+    api.agents.chat.sendMessage,
+  );
+
+  const messageQueryArgs = computed(() => ({
+    threadId: threadId.value,
+
+    paginationOpts: {
+      cursor: null,
+      numItems: 50,
+    },
+
+    streamArgs: {
+      kind: "list" as const,
+      startOrder: 0,
+    },
+  }));
+
+  const messageQuery = useConvexQuery(
+    api.agents.chat.listMessages,
+    messageQueryArgs,
+  );
+
+  const activeStreams = computed(() => {
+    const streams =
+      messageQuery.data.value?.streams;
+
+    if (!streams || streams.kind !== "list") {
+      return [];
     }
-  }
 
-  function startFallbackRotation() {
-    stopFallbackRotation()
-    if (remoteSteps.value) return
-    creationStepIndex.value = 0
-    fallbackTimer.value = setInterval(() => {
-      creationStepIndex.value = (creationStepIndex.value + 1) % steps.value.length
-    }, FALLBACK_ROTATION_MS)
-  }
+    return streams.messages;
+  });
 
-  /** A backend `step` event replaces the local rotation and drives the pill. */
-  function onStepEvent(text: string) {
-    const clean = text.trim()
-    if (!clean) return
-    if (!remoteSteps.value) {
-      remoteSteps.value = true
-      stopFallbackRotation()
-      steps.value = [clean]
-      creationStepIndex.value = 0
-      return
+  const cursors = ref<Record<string, number>>({});
+  const streamStates =
+    ref<Record<string, StreamState>>({});
+
+  watch(threadId, () => {
+    cursors.value = {};
+    streamStates.value = {};
+  });
+
+  watch(
+    activeStreams,
+    (streams) => {
+      const activeIds = new Set(
+        streams.map((stream) => stream.streamId),
+      );
+
+      const nextStates: Record<string, StreamState> = {};
+
+      for (const stream of streams) {
+        const existing =
+          streamStates.value[stream.streamId];
+
+        nextStates[stream.streamId] =
+          existing ?? {
+            streamId: stream.streamId,
+            order: stream.order,
+            stepOrder: stream.stepOrder,
+            content: "",
+          };
+
+        nextStates[stream.streamId]!.order =
+          stream.order;
+
+        nextStates[stream.streamId]!.stepOrder =
+          stream.stepOrder;
+      }
+
+      streamStates.value = nextStates;
+
+      const nextCursors: Record<string, number> = {};
+
+      for (const [streamId, cursor] of Object.entries(
+        cursors.value,
+      )) {
+        if (activeIds.has(streamId)) {
+          nextCursors[streamId] = cursor;
+        }
+      }
+
+      cursors.value = nextCursors;
+    },
+    {
+      immediate: true,
+      deep: true,
+    },
+  );
+
+  const deltaQueryArgs = computed(() => ({
+    threadId: threadId.value,
+
+    paginationOpts: {
+      cursor: null,
+      numItems: 0,
+    },
+
+    streamArgs: {
+      kind: "deltas" as const,
+      cursors: activeStreams.value.map((stream) => ({
+        streamId: stream.streamId,
+        cursor:
+          cursors.value[stream.streamId] ?? 0,
+      })),
+    },
+  }));
+
+  const deltaQuery = useConvexQuery(
+    api.agents.chat.listMessages,
+    deltaQueryArgs,
+  );
+
+  watch(
+    () => deltaQuery.data.value?.streams,
+    (streams) => {
+      if (!streams || streams.kind !== "deltas") {
+        return;
+      }
+
+      const nextStates = {
+        ...streamStates.value,
+      };
+
+      const nextCursors = {
+        ...cursors.value,
+      };
+
+      for (const delta of streams.deltas) {
+        const state =
+          nextStates[delta.streamId];
+
+        if (!state) {
+          continue;
+        }
+
+        const parts = Array.isArray(
+          (delta as any).parts,
+        )
+          ? (delta as any).parts
+          : [];
+
+        for (const part of parts) {
+          if (
+            part?.type === "text-delta" &&
+            typeof part.delta === "string"
+          ) {
+            state.content += part.delta;
+          }
+
+          if (
+            part?.type === "text" &&
+            typeof part.text === "string"
+          ) {
+            state.content += part.text;
+          }
+        }
+
+        const previous =
+          nextCursors[delta.streamId] ?? 0;
+
+        if (delta.end > previous) {
+          nextCursors[delta.streamId] =
+            delta.end;
+        }
+      }
+
+      streamStates.value = nextStates;
+      cursors.value = nextCursors;
+    },
+    {
+      deep: true,
+    },
+  );
+
+  const messages = computed<AgentChatMessage[]>(() => {
+    const persisted =
+      messageQuery.data.value?.page ?? [];
+
+    const active =
+      Object.values(streamStates.value);
+
+    const activeOrders = new Set(
+      active.map((stream) => stream.order),
+    );
+
+    const result: Array<
+      AgentChatMessage & { order: number }
+    > = [];
+
+    /*
+     * Persisted messages.
+     */
+    for (const message of persisted) {
+      if (activeOrders.has(message.order)) {
+        continue;
+      }
+
+      result.push({
+        id: message.key,
+        role:
+          message.role === "user"
+            ? "user"
+            : "assistant",
+        content: message.text ?? "",
+        order: message.order,
+      });
     }
-    steps.value = [...steps.value, clean]
-    creationStepIndex.value = steps.value.length - 1
-  }
+
+    /*
+     * Streaming assistant messages.
+     */
+    for (const stream of active) {
+      if (!stream.content) {
+        continue;
+      }
+
+      result.push({
+        id: stream.streamId,
+        role: "assistant",
+        content: stream.content,
+        order: stream.order,
+      });
+    }
+
+    /*
+     * Optimistic user messages.
+     *
+     * Once Convex exposes a persisted message with the
+     * same order, the optimistic copy is removed.
+     */
+    const persistedUserOrders = new Set(
+      persisted
+        .filter(
+          (message) => message.role === "user",
+        )
+        .map((message) => message.order),
+    );
+
+    const latestOrder =
+      result.length > 0
+        ? Math.max(
+            ...result.map(
+              (message) => message.order,
+            ),
+          )
+        : -1;
+
+    optimisticMessages.value.forEach(
+      (message, index) => {
+        if (
+          message.persistedOrder !== undefined &&
+          persistedUserOrders.has(
+            message.persistedOrder,
+          )
+        ) {
+          return;
+        }
+
+        result.push({
+          id: message.id,
+          role: message.role,
+          content: message.content,
+          order:
+            message.persistedOrder ??
+            latestOrder + index + 1,
+        });
+      },
+    );
+
+    return result
+      .sort((a, b) => a.order - b.order)
+      .map(
+        ({ order: _order, ...message }) =>
+          message,
+      );
+  });
+
+  const hasActiveStream = computed(
+    () => activeStreams.value.length > 0,
+  );
+
+  const isLoading = computed(
+    () =>
+      isMutationPending.value ||
+      waitingForResponse.value ||
+      hasActiveStream.value,
+  );
+
+  const creationPhase = computed<
+    "idle" | "creating"
+  >(() =>
+    isLoading.value
+      ? "creating"
+      : "idle",
+  );
+
+  const isCreating = computed(
+    () => creationPhase.value === "creating",
+  );
+
+  const currentStepText = computed(() => {
+    if (isMutationPending.value) {
+      return "Starting Witness…";
+    }
+
+    if (hasActiveStream.value) {
+      return "Witness is working on it…";
+    }
+
+    if (waitingForResponse.value) {
+      return "Witness is thinking…";
+    }
+
+    return "Working on it…";
+  });
+
+  const creationStepIndex = ref(0);
+
+  let assistantCountBeforeSend = 0;
+
+  watch(
+    messages,
+    (nextMessages) => {
+      const assistantCount =
+        nextMessages.filter(
+          (message) =>
+            message.role === "assistant",
+        ).length;
+
+      if (
+        waitingForResponse.value &&
+        assistantCount >
+          assistantCountBeforeSend
+      ) {
+        waitingForResponse.value = false;
+      }
+    },
+    {
+      deep: true,
+    },
+  );
 
   async function sendAgentMessage(
     prompt: string,
-    opts: SendAgentMessageOptions = {}
+    _opts: SendAgentMessageOptions = {},
   ): Promise<void> {
-    const cleanPrompt = prompt.trim()
-    if (!cleanPrompt || isLoading.value || isCreating.value) return
+    const cleanPrompt = prompt.trim();
 
-    requestError.value = ""
-    toolsUsed.value = []
-    steps.value = [...FALLBACK_STEPS]
-    creationStepIndex.value = 0
-    remoteSteps.value = false
-
-    const history: AgentHistoryItem[] = messages.value.map((m) => ({
-      role: m.role,
-      content: m.content,
-    }))
-    messages.value.push({ id: Date.now(), role: "user", content: cleanPrompt })
-
-    isLoading.value = true
-    creationPhase.value = "creating"
-    startFallbackRotation()
-
-    const controller = new AbortController()
-    abortController.value = controller
-    if (opts.signal) {
-      opts.signal.addEventListener("abort", () => controller.abort(), { once: true })
+    if (!cleanPrompt || isLoading.value) {
+      return;
     }
 
-    let assistantId: number | null = null
-    let reader: ReadableStreamDefaultReader<Uint8Array> | null = null
+    requestError.value = "";
+    toolsUsed.value = [];
 
-    const appendDelta = (content: string) => {
-      if (!content) return
-      if (assistantId === null) {
-        assistantId = Date.now() + 1
-        messages.value.push({ id: assistantId, role: "assistant", content })
-        return
-      }
-      const target = messages.value.find((m) => m.id === assistantId)
-      if (target) target.content += content
-    }
+    assistantCountBeforeSend =
+      messages.value.filter(
+        (message) =>
+          message.role === "assistant",
+      ).length;
 
-    const fail = (messageText: string): Error => {
-      if (assistantId !== null) {
-        const idx = messages.value.findIndex((m) => m.id === assistantId)
-        if (idx !== -1 && !messages.value[idx]!.content) messages.value.splice(idx, 1)
-      }
-      requestError.value = messageText
-      return new Error(messageText)
-    }
+    waitingForResponse.value = true;
+
+    const optimisticId =
+      `optimistic-${crypto.randomUUID()}`;
+
+    optimisticMessages.value.push({
+      id: optimisticId,
+      optimisticId,
+      role: "user",
+      content: cleanPrompt,
+    });
 
     try {
-      const response = await fetch("/api/agent/chat", {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          accept: "text/event-stream, application/json",
-        },
-        body: JSON.stringify({
+      const result =
+        await sendMessageMutation({
           prompt: cleanPrompt,
-          // tools: opts.tools ?? [],
-          // skills: opts.skills ?? [],
-          history,
-        }),
-        signal: controller.signal,
-      })
+          threadId:
+            threadId.value || undefined,
+        });
 
-      const contentType = response.headers.get("content-type") ?? ""
-
-      if (!response.ok || !response.body) {
-        let detail = ""
-        try {
-          const errJson = (await response.json()) as { statusMessage?: unknown }
-          if (typeof errJson?.statusMessage === "string") detail = errJson.statusMessage
-        } catch {
-          // Fall through to the generic message.
-        }
-        throw fail(detail || `Witness had an error (HTTP ${response.status}).`)
+      if (!result) {
+        throw new Error(
+          "Witness could not start the conversation.",
+        );
       }
 
-      // Plain JSON fallback (also normalised server-side, kept here for robustness).
-      if (!contentType.includes("text/event-stream")) {
-        const data = (await response.json()) as {
-          message?: unknown
-          steps?: unknown
-          tools?: unknown
-        }
-        if (Array.isArray(data.steps)) {
-          for (const step of data.steps) if (typeof step === "string") onStepEvent(step)
-        }
-        if (Array.isArray(data.tools)) {
-          toolsUsed.value = data.tools.filter((t): t is string => typeof t === "string")
-        }
-        const text = typeof data.message === "string" ? data.message : ""
-        if (!text) throw fail("Witness returned an empty response. Please try again.")
-        appendDelta(text)
-        return
+      threadId.value = result.threadId;
+
+      const optimisticMessage =
+        optimisticMessages.value.find(
+          (message) =>
+            message.optimisticId ===
+            optimisticId,
+        );
+
+      if (optimisticMessage) {
+        optimisticMessage.persistedOrder =
+          result.messageOrder;
       }
-
-      reader = response.body.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ""
-
-      const handleEvent = (name: string, raw: string): void => {
-        let data: any = null
-        try {
-          data = raw ? JSON.parse(raw) : null
-        } catch {
-          data = raw
-        }
-        if (name === "step" && data && typeof data.text === "string") onStepEvent(data.text)
-        else if (name === "delta" && data && typeof data.content === "string") {
-          appendDelta(data.content)
-        } else if (name === "tools" && data && Array.isArray(data.tools)) {
-          toolsUsed.value = data.tools.filter((t: unknown): t is string => typeof t === "string")
-        } else if (name === "error") {
-          const messageText =
-            data && typeof data.message === "string" && data.message
-              ? data.message
-              : "Witness could not respond right now. Please try again."
-          throw fail(messageText)
-        }
-        // `done` needs no action — completion is detected by stream end.
-      }
-
-      for (;;) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        let boundary = buffer.indexOf("\n\n")
-        while (boundary !== -1) {
-          const chunk = buffer.slice(0, boundary)
-          buffer = buffer.slice(boundary + 2)
-          let eventName = ""
-          const dataLines: string[] = []
-          for (const line of chunk.split("\n")) {
-            if (line.startsWith("event:")) eventName = line.slice(6).trim()
-            else if (line.startsWith("data:")) dataLines.push(line.slice(5).trimStart())
-          }
-          if (eventName) handleEvent(eventName, dataLines.join("\n"))
-          boundary = buffer.indexOf("\n\n")
-        }
-      }
-
-      if (assistantId === null) throw fail("Witness returned an empty response. Please try again.")
     } catch (error) {
-      if (error instanceof DOMException && error.name === "AbortError") throw error
-      if (error instanceof Error && requestError.value) throw error
-      const messageText =
-        error instanceof TypeError
-          ? "Witness could not respond right now. Please try again."
-          : error instanceof Error && error.message
-            ? error.message
-            : "Witness could not respond right now. Please try again."
-      throw fail(messageText)
-    } finally {
-      try {
-        await reader?.cancel()
-      } catch {
-        // Stream already closed — nothing to do.
-      }
-      stopFallbackRotation()
-      abortController.value = null
-      isLoading.value = false
-      creationPhase.value = "idle"
+      optimisticMessages.value =
+        optimisticMessages.value.filter(
+          (message) =>
+            message.optimisticId !==
+            optimisticId,
+        );
+
+      waitingForResponse.value = false;
+
+      requestError.value =
+        error instanceof Error
+          ? error.message
+          : "Witness could not respond right now.";
+
+      throw error;
     }
   }
 
   function abortAgentCreation() {
-    abortController.value?.abort()
-    stopFallbackRotation()
-    isLoading.value = false
-    creationPhase.value = "idle"
+    waitingForResponse.value = false;
   }
 
   return {
+    threadId,
+
     messages,
     toolsUsed,
+
     isLoading,
     creationPhase,
     isCreating,
+
     creationStepIndex,
     currentStepText,
+
     requestError,
+
     sendAgentMessage,
     abortAgentCreation,
-  }
+  };
 }
