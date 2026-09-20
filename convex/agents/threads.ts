@@ -3,6 +3,8 @@ import {
   createThread,
 } from "@convex-dev/agent";
 
+import { witnessAgent } from "./witness";
+
 import {
   mutation,
   query,
@@ -48,6 +50,41 @@ export async function authorizeThreadAccess(
     thread,
   };
 }
+
+export const remove = mutation({
+  args: {
+    threadId: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    await authorizeThreadAccess(ctx, args.threadId);
+
+    await witnessAgent.deleteThreadAsync(ctx, {
+      threadId: args.threadId,
+    });
+
+    return {
+      success: true,
+    };
+  },
+});
+export const list = query({
+  args: {
+    paginationOpts: paginationOptsValidator,
+  },
+
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+
+    return await ctx.runQuery(
+      components.agent.threads.listThreadsByUserId,
+      {
+        userId: user.id,
+        paginationOpts: args.paginationOpts,
+      },
+    );
+  },
+});
 
 export const create = mutation({
   args: {

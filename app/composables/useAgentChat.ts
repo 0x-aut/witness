@@ -25,11 +25,13 @@ export interface SendAgentMessageOptions {
   signal?: AbortSignal;
 }
 
-export function useAgentChat() {
+export function useAgentChat(
+  initialThread="",
+) {
   const optimisticMessages =
     ref<OptimisticAgentChatMessage[]>([]);
 
-  const threadId = ref("");
+  const threadId = ref(initialThread);
 
   const requestError = ref("");
   const waitingForResponse = ref(false);

@@ -3,7 +3,13 @@ import { SmoothCorners, useSmoothCorners } from "@lisse/vue";
 import { ArrowUp, Plus, X } from "@lucide/vue";
 import { useAgentChat } from "~/composables/useAgentChat";
 
-const props = defineProps<{ displayName: string | null | undefined, id?: string; required?: boolean; placeholder?: string }>()
+const props = defineProps<{ 
+  displayName: string | null | undefined;
+  threadId?: string;
+  id?: string;
+  required?: boolean;
+  placeholder?: string;
+}>()
 
 
 // Chat state lives in the composable: page -> useAgentChat -> /api/agent/chat.
@@ -17,7 +23,7 @@ const {
   requestError,
   sendAgentMessage,
   abortAgentCreation,
-} = useAgentChat();
+} = useAgentChat(props.threadId);
 
 
 const route = useRoute();

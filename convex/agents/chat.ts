@@ -43,7 +43,10 @@ export const sendMessage = mutation({
     if (!threadId) {
       threadId = await createThread(ctx, components.agent, {
         userId: user.id,
-        title: "Witness",
+        title:
+          prompt.length > 60
+            ? `${prompt.slice(0, 57)}...`
+            : prompt,
       });
     } else {
       await authorizeThreadAccess(ctx, threadId);

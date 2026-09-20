@@ -11,14 +11,51 @@ import {
   Settings,
   Bot,
   BriefcaseBusiness,
+  Trash2,
 } from "@lucide/vue";
 import { authClient } from "@@/lib/auth-client";
+import { api } from "@@/convex/_generated/api";
 
 const { data: session } = await authClient.getSession();
 
 const route = useRoute();
 
 const username = route.params.username as string;
+
+const { 
+  mutate: deleteThread
+} = useConvexMutation(
+  api.agents.threads.remove,
+)
+
+const recentChatsQuery = useConvexQuery(
+  api.agents.threads.list,
+  {
+    paginationOpts: {
+      cursor: null,
+      numItems: 5,
+    },
+  },
+);
+
+const recentChats = computed(
+  () => recentChatsQuery.data.value?.page ?? [],
+);
+
+
+async function handleDeleteChat(
+  event: MouseEvent,
+  threadId: string,
+) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  await deleteThread({ threadId });
+  if (route.params.threadId === threadId) {
+    await navigateTo(`/${username}/agent`)
+  }
+}
+
 
 const navigation = [
   {
@@ -206,6 +243,61 @@ const navbar = computed(() => {
           </SmoothCorners>
           <UIElementsNavTooltip :text="item.tooltip" />
         </div>
+
+        <GSAPTransition
+          :hidden="{ opacity: 0, y: -6 }"
+          :duration="0.25"
+        >
+          <div
+            v-if="
+              route.path.startsWith(`/${username}/agent`) &&
+              recentChats.length
+            "
+            class="mt-4"
+          >
+            <div class="px-1.5 pb-1.5">
+              <span class="unmodified-font-sans text-sm font-medium text-[#8A8A8A]">
+                Recents
+              </span>
+            </div>
+          
+            <nav class="flex flex-col gap-y-0.5">
+              <SmoothCorners
+                v-for="chat in recentChats"
+                :key="chat._id"
+                as-child
+                :corners="{ radius: 10, smoothing: 0.6 }"
+              >
+                <NuxtLink
+                  :to="`/${username}/agent/${chat._id}`"
+                  :class="[
+                    'group flex w-full items-center justify-between gap-x-2 px-1.5 py-1 transition-colors',
+                    route.params.threadId === chat._id
+                      ? 'bg-[#E3E3E3] text-[#121212]'
+                      : 'text-[#6B6B6B] hover:bg-[#EBEBEB] hover:text-[#121212]',
+                  ]"
+                >
+                  <span class="min-w-0 flex-1 truncate text-sm">
+                    {{ chat.title || "New chat" }}
+                  </span>
+                
+                  <button
+                    type="button"
+                    aria-label="Delete chat"
+                    class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md opacity-0 transition-all duration-150 group-hover:opacity-100 hover:bg-[#DCDCDC]"
+                    @click="handleDeleteChat($event, chat._id)"
+                  >
+                    <Trash2
+                      :size="13"
+                      :stroke-width="1.8"
+                      class="text-[#777] hover:text-[#121212]"
+                    />
+                  </button>
+                </NuxtLink>
+              </SmoothCorners>
+            </nav>
+          </div>
+        </GSAPTransition>
       </nav>
 
       <!-- SETTINGS -->
