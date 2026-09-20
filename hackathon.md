@@ -12,9 +12,9 @@ Witness helps people deal with bureaucratic problems by understanding what happe
 
 ## Frontend
 
-**Frontend:** Undecided
+**Frontend:** Nuxt 4 / TypeScript
 
-The application is being built with Nuxt and TypeScript. Final hosting will be selected between Convex static hosting and ChatGPT Sites before submission.
+The application is being built with Nuxt 4 and TypeScript.
 
 ## Build Status
 
@@ -34,8 +34,8 @@ The application is being built with Nuxt and TypeScript. Final hosting will be s
 * Convex Nuxt integration
 * AgentMail
 * Firecrawl
-* OpenAI SDK
-* OpenAI Agents SDK
+* AI SDK
+* OpenAI-compatible model provider
 * Composio
 * Comark
 * Google GenAI SDK
@@ -46,11 +46,11 @@ The application is being built with Nuxt and TypeScript. Final hosting will be s
 
 The project includes Convex and the Convex Nuxt integration, along with the AgentMail and Firecrawl Convex packages.
 
-The current development inference path uses **Qwen through an OpenAI-compatible API using the OpenAI SDK**.
+The current development inference path uses **Qwen through an OpenAI-compatible API using the AI SDK**.
 
-OpenAI Agents, Composio, Google GenAI, and Comark are also included as part of the foundation for the upcoming agent and integration work.
+Convex Agent, Composio, Firecrawl, AgentMail, and Comark form the current foundation for agent execution, research, communication, and assistant rendering.
 
-Better Auth is being used for application authentication and user identity, with PostgreSQL as its current database.
+Better Auth is being used for application authentication and user identity, hosted through the Convex Better Auth component.
 
 ## Product Direction
 
@@ -298,41 +298,81 @@ The current location model is intentionally designed to begin with country and s
 
 ---
 
+## September 20, 2026 — Convex Agent runtime and real-time chat foundation
+
+The Agent chat architecture was migrated from the initial Nuxt server/SSE implementation to the Convex Agent runtime.
+
+Convex Agent is now registered as a Convex component and Witness uses a dedicated Agent instance with the Qwen model through the AI SDK OpenAI-compatible provider.
+
+The Agent chat server implementation now provides:
+
+* Authenticated thread creation
+* Thread ownership checks
+* Persisted Agent messages through the Convex Agent component
+* Asynchronous Agent response generation
+* Streamed assistant output
+* Realtime stream synchronization with `syncStreams`
+* Persisted message loading with `listUIMessages`
+* Dedicated thread and message query helpers
+* Server-side Qwen provider configuration
+
+A Convex auth plugin was added on the Nuxt side so the Convex client receives the Better Auth JWT and authenticated Convex functions can resolve the current user.
+
+The client chat composable was rebuilt around Convex realtime state rather than an application-managed SSE stream. Active stream metadata is synchronized from Convex, deltas are accumulated locally for responsive rendering, and completed assistant messages are replaced by their persisted records.
+
+Optimistic user-message rendering was added so the user's message appears immediately after send rather than waiting for the first Convex response. Optimistic messages are reconciled against the persisted Agent message order to avoid duplicate rendering.
+
+The root Witness schema was adjusted so Agent message persistence remains owned by the Convex Agent component rather than duplicating the Agent's message storage in a separate application table.
+
+The latest application structure now treats Convex as the source of truth for Agent threads, messages, asynchronous execution, and streaming state.
+
+The product README was also expanded into the current implementation specification, covering the intended Case, Agent, Inbox, Vault, research, Composio, AgentMail, interruption, realtime, personalization, authorization, and sharing systems.
+
+---
+
 # Current Architecture Direction
 
-The current authentication and application direction is:
+The current application architecture is:
 
 ```text
-Nuxt / Vue
+Nuxt 4 / Vue
   ↓
 Better Auth
   ↓
-Authenticated user
+Convex client authentication
   ↓
-Convex / application state
+Convex application state + Agent runtime
 ```
 
-The current agent path is:
+The current Agent path is:
 
 ```text
 Nuxt frontend
   ↓
 useAgentChat()
   ↓
-POST /api/agent/chat
+Convex mutation
   ↓
-server/services/agent/chat.ts
+saveMessage()
   ↓
-server/providers/openai.ts
+scheduler
   ↓
-OpenAI-compatible model provider
+Convex Agent action
   ↓
-streamed step + delta events
+witnessAgent.streamText()
+  ↓
+saveStreamDeltas
+  ↓
+syncStreams()
+  ↓
+Convex realtime
   ↓
 Witness chat UI
 ```
 
-The broader intended architecture is:
+The current development model is Qwen through an OpenAI-compatible API using the AI SDK.
+
+The broader application architecture is:
 
 ```text
 Witness
@@ -340,16 +380,17 @@ Witness
 │   └── User identity + profile
 │
 ├── Convex
+│   ├── Agent runtime
 │   ├── Cases
 │   ├── Agents
+│   ├── Agent threads
 │   ├── Inbox
 │   ├── Vault
 │   ├── Notifications
+│   ├── User actions
 │   └── Realtime state
 │
-├── Agent runtime
-│   ├── Model provider
-│   ├── OpenAI Agents
+├── External services
 │   ├── Composio
 │   ├── Firecrawl
 │   └── AgentMail
@@ -357,10 +398,7 @@ Witness
 └── Nuxt frontend
 ```
 
-The model provider, agent runtime, application state, and authentication layers are intentionally kept separate so each can evolve without restructuring the entire application.
-
----
-
+Convex is now the source of truth for Agent threads, messages, asynchronous execution, and realtime stream state. Application-specific data such as Cases, Inbox records, user actions, files, and integrations remains in the root Witness schema.
 # Planned Core Experience
 
 The target end-to-end flow is:
