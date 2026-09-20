@@ -328,6 +328,14 @@ The latest application structure now treats Convex as the source of truth for Ag
 
 The product README was also expanded into the current implementation specification, covering the intended Case, Agent, Inbox, Vault, research, Composio, AgentMail, interruption, realtime, personalization, authorization, and sharing systems.
 
+The Agent sidebar now includes a controlled Recent Chats section showing the user's latest conversations. Existing Convex Agent threads can be reopened directly from the sidebar, preserving the persisted conversation history rather than maintaining a second client-side history store.
+
+Recent chats use the existing Agent thread title as their display label, with new conversations initially titled from the user's first prompt for immediate usefulness.
+
+Chat deletion was added with server-side thread authorization and deletion through the Convex Agent runtime. Deleting the currently open conversation returns the user to a new Agent chat.
+
+A lightweight GSAP reveal was added to the Recent Chats section, while the interaction remains intentionally compact. The sidebar is kept limited rather than becoming a full chat archive; richer thread actions such as sharing are reserved for a later overflow menu.
+
 ---
 
 # Current Architecture Direction
