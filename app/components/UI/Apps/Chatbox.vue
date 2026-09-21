@@ -79,9 +79,11 @@ function restoreDraft() {
   });
 }
 
-function abortCreation() {
+async function abortCreation() {
   abortedRef.value = true;
-  abortAgentCreation();
+
+  await abortAgentCreation();
+
   restoreDraft();
 }
 
@@ -143,9 +145,6 @@ onMounted(() => {
   adjustHeight();
 });
 
-onBeforeUnmount(() => {
-  abortAgentCreation();
-});
 
 watch(message, () => nextTick(adjustHeight));
 </script>

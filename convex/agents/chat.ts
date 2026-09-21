@@ -16,6 +16,7 @@ import {
   saveMessage,
   syncStreams,
   vStreamArgs,
+  abortStream,
 } from "@convex-dev/agent";
 
 import {
@@ -184,6 +185,366 @@ export const sendMessage = mutation({
   },
 });
 
+export const generateUploadUrl = mutation({
+  args: {},
+
+  handler: async ctx => {
+    await getCurrentUser(ctx);
+
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
+export const resolveUserAction = mutation({
+  args: {
+    actionId: v.id("userActions"),
+    response: v.optional(v.string()),
+    files: v.optional(
+      v.array(
+        v.object({
+          storageId: v.id("_storage"),
+          filename: v.string(),
+          mimeType: v.string(),
+          size: v.number(),
+        }),
+      ),
+    ),
+  },
+
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+    const now = Date.now();
+
+    const action = await ctx.db.get(
+      args.actionId,
+    );
+
+    if (
+      !action ||
+      action.userId !== user._id
+    ) {
+      throw new Error("User action not found.");
+    }
+
+    if (action.status !== "pending") {
+      throw new Error(
+        "This user action has already been resolved.",
+      );
+    }
+
+    const agent = await ctx.db.get(
+      action.agentId,
+    );
+
+    const caseData = await ctx.db.get(
+      action.caseId,
+    );
+
+    if (
+      !agent ||
+      agent.userId !== user._id ||
+      !caseData ||
+      caseData.userId !== user._id
+    ) {
+      throw new Error(
+        "Invalid Case or Agent.",
+      );
+    }
+
+    if (
+      action.type === "upload_file" &&
+      (!args.files || !args.files.length)
+    ) {
+      throw new Error(
+        "At least one document is required.",
+      );
+    }
+
+    if (
+      action.type !== "upload_file" &&
+      !args.response?.trim()
+    ) {
+      throw new Error(
+        "A response is required.",
+      );
+    }
+
+    const fileIds = [];
+
+    for (const file of args.files ?? []) {
+      const fileId = await ctx.db.insert(
+        "files",
+        {
+          userId: user._id,
+          caseId: action.caseId,
+          agentId: action.agentId,
+          storageId: file.storageId,
+          filename: file.filename,
+          mimeType: file.mimeType,
+          size: file.size,
+        },
+      );
+
+      fileIds.push(fileId);
+    }
+
+    const response =
+      args.response?.trim() ||
+      `Uploaded: ${(args.files ?? [])
+        .map(file => file.filename)
+        .join(", ")}`;
+
+    await ctx.db.patch(
+      action._id,
+      {
+        status: "completed",
+        response,
+        metadata: {
+          ...(action.metadata ?? {}),
+          fileIds,
+        },
+        completedAt: now,
+      },
+    );
+
+    const inboxItems = await ctx.db
+      .query("inboxItems")
+      .withIndex(
+        "by_case_id",
+        q =>
+          q.eq(
+            "caseId",
+            action.caseId,
+          ),
+      )
+      .collect();
+
+    const inboxItem = inboxItems.find(
+      item =>
+        item.externalId ===
+        String(action._id),
+    );
+
+    if (inboxItem) {
+      await ctx.db.patch(
+        inboxItem._id,
+        {
+          read: true,
+          updatedAt: now,
+        },
+      );
+    }
+
+    const widgets = await ctx.db
+      .query("caseWidgets")
+      .withIndex(
+        "by_case_id",
+        q =>
+          q.eq(
+            "caseId",
+            action.caseId,
+          ),
+      )
+      .collect();
+
+    const actionWidget = widgets.find(
+      widget =>
+        widget.data &&
+        typeof widget.data === "object" &&
+        widget.data.actionId ===
+          action._id,
+    );
+
+    if (actionWidget) {
+      await ctx.db.patch(
+        actionWidget._id,
+        {
+          data: {
+            ...actionWidget.data,
+            status: "completed",
+            response,
+            fileIds,
+          },
+          updatedAt: now,
+        },
+      );
+    }
+
+    await ctx.db.patch(
+      action.agentId,
+      {
+        status: "running",
+        updatedAt: now,
+      },
+    );
+
+    await ctx.db.patch(
+      action.caseId,
+      {
+        status: "active",
+        updatedAt: now,
+      },
+    );
+
+    await ctx.db.insert(
+      "caseActivities",
+      {
+        userId: user._id,
+        caseId: action.caseId,
+        agentId: action.agentId,
+        type: "user_action",
+        title: "User responded",
+        description: response,
+        metadata: {
+          actionId: action._id,
+          fileIds,
+        },
+        createdAt: now,
+      },
+    );
+
+    /*
+     * Continue the same Agent thread with the user's response.
+     */
+    const { messageId, message } =
+      await saveMessage(
+        ctx,
+        components.agent,
+        {
+          threadId:
+            (
+              await ctx.db
+                .query("agentThreads")
+                .withIndex(
+                  "by_agent_id",
+                  q =>
+                    q.eq(
+                      "agentId",
+                      action.agentId,
+                    ),
+                )
+                .order("desc")
+                .first()
+            )?.externalThreadId!,
+          userId: user._id,
+          prompt: response,
+        },
+      );
+
+    const thread = await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_agent_id",
+        q =>
+          q.eq(
+            "agentId",
+            action.agentId,
+          ),
+      )
+      .order("desc")
+      .first();
+
+    if (!thread?.externalThreadId) {
+      throw new Error(
+        "Agent thread not found.",
+      );
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.agents.chat.generateResponse,
+      {
+        threadId:thread.externalThreadId,
+        promptMessageId: messageId,
+        agentId: action.agentId,
+      },
+    );
+
+    return {
+      actionId: action._id,
+      messageOrder: message.order,
+    };
+  },
+});
+
+export const getPendingUserAction = query({
+  args: {
+    threadId: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    if (!args.threadId) {
+      return null;
+    }
+
+    await authorizeThreadAccess(
+      ctx,
+      args.threadId,
+    );
+
+    const applicationThread = await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_external_thread_id",
+        q =>
+          q.eq(
+            "externalThreadId",
+            args.threadId,
+          ),
+      )
+      .unique();
+
+    if (!applicationThread) {
+      return null;
+    }
+
+    const actions = await ctx.db
+      .query("userActions")
+      .withIndex(
+        "by_agent_id",
+        q =>
+          q.eq(
+            "agentId",
+            applicationThread.agentId,
+          ),
+      )
+      .order("desc")
+      .take(20);
+
+    const action = actions.find(
+      item => item.status === "pending",
+    );
+
+    if (!action) {
+      return null;
+    }
+
+    const metadata =
+      action.metadata &&
+      typeof action.metadata === "object"
+        ? action.metadata as Record<string, unknown>
+        : {};
+
+    const options =
+      Array.isArray(metadata.options)
+        ? metadata.options.filter(
+            (value): value is string =>
+              typeof value === "string",
+          )
+        : [];
+
+    return {
+      id: action._id,
+      caseId: action.caseId,
+      agentId: action.agentId,
+      type: action.type,
+      prompt: action.prompt,
+      options,
+      metadata,
+    };
+  },
+});
+
 /**
  * Internal lookup used after an Agent turn because the Agent may have
  * attached itself to a Case through one of its tools.
@@ -225,6 +586,18 @@ export const generateResponse = internalAction({
 
   handler: async (ctx, args) => {
     try {
+
+      const agent = await ctx.runQuery(
+        internal.agents.chat.getAgentState,
+        {
+          agentId: args.agentId,
+        },
+      );
+      
+      if (!agent || agent.status !== "running") {
+        return;
+      }
+      
       const result = await witnessAgent.streamText(
         ctx,
         {
@@ -296,6 +669,159 @@ export const generateResponse = internalAction({
 });
 
 
+export const getAgentState = internalQuery({
+  args: {
+    agentId: v.id("agents"),
+  },
+
+  handler: async (ctx, args) => {
+    return await ctx.db.get(
+      args.agentId,
+    );
+  },
+});
+
+export const cancelGeneration = mutation({
+  args: {
+    threadId: v.string(),
+    order: v.optional(v.number()),
+  },
+
+  handler: async (ctx, args) => {
+    const user = await getCurrentUser(ctx);
+
+    await authorizeThreadAccess(
+      ctx,
+      args.threadId,
+    );
+
+    const thread = await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_external_thread_id",
+        q =>
+          q.eq(
+            "externalThreadId",
+            args.threadId,
+          ),
+      )
+      .unique();
+
+    if (!thread) {
+      return {
+        success: false,
+      };
+    }
+
+    const agent = await ctx.db.get(
+      thread.agentId,
+    );
+
+    if (
+      !agent ||
+      agent.userId !== user._id
+    ) {
+      throw new Error(
+        "Agent not found.",
+      );
+    }
+
+    if (args.order !== undefined) {
+      await abortStream(
+        ctx,
+        components.agent,
+        {
+          threadId: args.threadId,
+          order: args.order,
+          reason: "User stopped Witness.",
+        },
+      );
+    }
+
+    const pendingActions = await ctx.db
+      .query("userActions")
+      .withIndex(
+        "by_agent_id",
+        q =>
+          q.eq(
+            "agentId",
+            thread.agentId,
+          ),
+      )
+      .collect();
+
+    const pendingAction =
+      pendingActions.find(
+        action =>
+          action.status === "pending",
+      );
+
+    if (pendingAction) {
+      await ctx.db.patch(
+        pendingAction._id,
+        {
+          status: "cancelled",
+        },
+      );
+
+      const widgets = await ctx.db
+        .query("caseWidgets")
+        .withIndex(
+          "by_case_id",
+          q =>
+            q.eq(
+              "caseId",
+              pendingAction.caseId,
+            ),
+        )
+        .collect();
+
+      const actionWidget = widgets.find(
+        widget =>
+          widget.data &&
+          typeof widget.data === "object" &&
+          widget.data.actionId ===
+            pendingAction._id,
+      );
+
+      if (actionWidget) {
+        await ctx.db.patch(
+          actionWidget._id,
+          {
+            data: {
+              ...actionWidget.data,
+              status: "cancelled",
+            },
+            updatedAt: Date.now(),
+          },
+        );
+      }
+    }
+
+    await ctx.db.patch(
+      thread.agentId,
+      {
+        status: "stopped",
+        updatedAt: Date.now(),
+      },
+    );
+
+    if (thread.caseId) {
+      await ctx.db.patch(
+        thread.caseId,
+        {
+          status: "active",
+          updatedAt: Date.now(),
+        },
+      );
+    }
+
+    return {
+      success: true,
+    };
+  },
+});
+
 /**
  * Internal Agent status update.
  */
@@ -311,7 +837,11 @@ export const finishAgent = internalMutation({
   handler: async (ctx, args) => {
     const agent = await ctx.db.get(args.agentId);
 
-    if (!agent) {
+    if (
+      !agent ||
+      agent.status === "stopped" ||
+      agent.status === "needs_user_action"
+    ) {
       return;
     }
 

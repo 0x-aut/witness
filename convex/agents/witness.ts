@@ -1,4 +1,4 @@
-import { Agent, stepCountIs } from "@convex-dev/agent";
+import { Agent, stepCountIs, hasSuccessfulToolCall } from "@convex-dev/agent";
 
 import { components } from "../_generated/api";
 import { getQwenModel } from "../providers/qwen";
@@ -13,6 +13,11 @@ import {
   recordCaseActivity,
   addCaseWidget,
 } from "./tools/cases";
+
+import { 
+  askUser,
+  getCaseFiles,
+} from "./tools/work"
 
 import {
   mapSite,
@@ -96,7 +101,13 @@ export const witnessAgent = new Agent(components.agent, {
     mapSite,
     scrapeUrl,
     searchWeb,
+
+    askUser,
+    getCaseFiles,
   },
 
-  stopWhen: stepCountIs(10),
+  stopWhen: [
+    stepCountIs(10),
+    hasSuccessfulToolCall("askUser")
+  ],
 });

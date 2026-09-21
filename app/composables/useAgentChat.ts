@@ -44,6 +44,47 @@ export function useAgentChat(
     api.agents.chat.sendMessage,
   );
 
+  const {
+    mutate: cancelGenerationMutation,
+  } = useConvexMutation(
+    api.agents.chat.cancelGeneration,
+  );
+  
+  const {
+    mutate: resolveUserActionMutation,
+  } = useConvexMutation(
+    api.agents.chat.resolveUserAction,
+  );
+  
+  const {
+    mutate: generateUploadUrlMutation,
+  } = useConvexMutation(
+    api.agents.chat.generateUploadUrl,
+  );
+  
+  const pendingUserActionQuery =
+    useConvexQuery(
+      api.agents.chat.getPendingUserAction,
+      computed(() => ({
+        threadId: threadId.value,
+      })),
+    );
+  
+  const pendingUserAction = computed(
+    () =>
+      pendingUserActionQuery.data.value ??
+      null,
+  );
+  
+  const hasPendingUserAction = computed(
+    () => Boolean(pendingUserAction.value),
+  );
+  
+  const generationOrder =
+    ref<number | null>(null);
+  
+  const cancelRequested = ref(false);
+
   const messageQueryArgs = computed(() => ({
     threadId: threadId.value,
 
@@ -335,7 +376,8 @@ export function useAgentChat(
     () =>
       isMutationPending.value ||
       waitingForResponse.value ||
-      hasActiveStream.value,
+      hasActiveStream.value ||
+      hasPendingUserAction.value,
   );
 
   const creationPhase = computed<
@@ -392,6 +434,59 @@ export function useAgentChat(
     },
   );
 
+  async function resolveUserAction(
+    actionId: string,
+    response?: string,
+    files: File[] = [],
+  ) {
+    const uploadedFiles = [];
+  
+    for (const file of files) {
+      const uploadUrl =
+        await generateUploadUrlMutation({});
+  
+      const uploadResponse = await fetch(
+        uploadUrl,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              file.type ||
+              "application/octet-stream",
+          },
+          body: file,
+        },
+      );
+  
+      if (!uploadResponse.ok) {
+        throw new Error(
+          `Failed to upload ${file.name}.`,
+        );
+      }
+  
+      const { storageId } =
+        await uploadResponse.json();
+  
+      uploadedFiles.push({
+        storageId,
+        filename: file.name,
+        mimeType:
+          file.type ||
+          "application/octet-stream",
+        size: file.size,
+      });
+    }
+  
+    await resolveUserActionMutation({
+      actionId,
+      response,
+      files:
+        uploadedFiles.length
+          ? uploadedFiles
+          : undefined,
+    });
+  }
+
   async function sendAgentMessage(
     prompt: string,
     _opts: SendAgentMessageOptions = {},
@@ -438,6 +533,18 @@ export function useAgentChat(
       }
 
       threadId.value = result.threadId;
+      generationOrder.value = result.messageOrder;
+      
+      if (cancelRequested.value) {
+        cancelRequested.value = false;
+      
+        await cancelGenerationMutation({
+          threadId: result.threadId,
+          order: result.messageOrder,
+        });
+      
+        generationOrder.value = null;
+      }
 
       const optimisticMessage =
         optimisticMessages.value.find(
@@ -469,8 +576,25 @@ export function useAgentChat(
     }
   }
 
-  function abortAgentCreation() {
+  async function abortAgentCreation() {
+    cancelRequested.value = true;
     waitingForResponse.value = false;
+  
+    if (!threadId.value) {
+      return;
+    }
+  
+    try {
+      await cancelGenerationMutation({
+        threadId: threadId.value,
+        order:
+          generationOrder.value ??
+          undefined,
+      });
+    } finally {
+      generationOrder.value = null;
+      cancelRequested.value = false;
+    }
   }
 
   return {
@@ -485,6 +609,11 @@ export function useAgentChat(
 
     creationStepIndex,
     currentStepText,
+
+    pendingUserAction,
+    hasPendingUserAction,
+    resolveUserAction,
+    abortAgentCreation,
 
     requestError,
 

@@ -142,30 +142,37 @@ export const getForAgent = internalQuery({
       .collect();
 
     const documentBlocks = [];
-
+    
     for (const block of blocks) {
       if (block.type === "narrative") {
         documentBlocks.push({
           ...block,
-          widget: null,
+          widgets: [],
         });
-
+    
         continue;
       }
-
-      if (!block.widgetId) {
+    
+      const widgets = [];
+    
+      for (const widgetId of block.widgetIds ?? []) {
+        const widget = await ctx.db.get(widgetId);
+    
+        if (
+          widget &&
+          widget.userId === args.userId
+        ) {
+          widgets.push(widget);
+        }
+      }
+    
+      if (!widgets.length) {
         continue;
       }
-
-      const widget = await ctx.db.get(block.widgetId);
-
-      if (!widget || widget.userId !== args.userId) {
-        continue;
-      }
-
+    
       documentBlocks.push({
         ...block,
-        widget,
+        widgets,
       });
     }
 
