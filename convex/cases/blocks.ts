@@ -18,6 +18,104 @@ const blockType = v.union(
   v.literal("widget"),
 );
 
+async function addWidgetToCase(
+  ctx: MutationCtx,
+  userId: string,
+  caseId: Id<"cases">,
+  widgetType:
+    | "email"
+    | "research"
+    | "document"
+    | "action"
+    | "approval"
+    | "question"
+    | "link"
+    | "result",
+  data: unknown,
+) {
+  const now = Date.now();
+
+  const latestBlock = await ctx.db
+    .query("caseBlocks")
+    .withIndex(
+      "by_case_id_order",
+      q => q.eq("caseId", caseId),
+    )
+    .order("desc")
+    .first();
+
+  const widgetId = await ctx.db.insert(
+    "caseWidgets",
+    {
+      userId,
+      caseId,
+      type: widgetType,
+      data,
+      createdAt: now,
+      updatedAt: now,
+    },
+  );
+
+  /*
+   * A widget block represents one horizontal row.
+   *
+   * Consecutive widgets are therefore grouped into the same block
+   * instead of creating a new block for every widget.
+   */
+  if (
+    latestBlock &&
+    latestBlock.type === "widget"
+  ) {
+    const widgetIds = [
+      ...(latestBlock.widgetIds ?? []),
+      widgetId,
+    ];
+
+    await ctx.db.patch(
+      latestBlock._id,
+      {
+        widgetIds,
+        updatedAt: now,
+      },
+    );
+
+    await ctx.db.patch(caseId, {
+      updatedAt: now,
+    });
+
+    return {
+      blockId: latestBlock._id,
+      widgetId,
+    };
+  }
+
+  const order = latestBlock
+    ? latestBlock.order + 1000
+    : 1000;
+
+  const blockId = await ctx.db.insert(
+    "caseBlocks",
+    {
+      userId,
+      caseId,
+      type: "widget",
+      order,
+      widgetIds: [widgetId],
+      createdAt: now,
+      updatedAt: now,
+    },
+  );
+
+  await ctx.db.patch(caseId, {
+    updatedAt: now,
+  });
+
+  return {
+    blockId,
+    widgetId,
+  };
+}
+
 async function getOwnedCase(
   ctx: QueryCtx | MutationCtx,
   caseId: Id<"cases">,
@@ -133,56 +231,16 @@ export const createWidget = mutation({
       args.caseId,
     );
 
-    const existing = await ctx.db
-      .query("caseBlocks")
-      .withIndex(
-        "by_case_id_order",
-        q => q.eq("caseId", args.caseId),
-      )
-      .order("desc")
-      .first();
-
-    const now = Date.now();
-
-    const order = existing
-      ? existing.order + 1000
-      : 1000;
-
-    const widgetId = await ctx.db.insert(
-      "caseWidgets",
-      {
-        userId: user._id,
-        caseId: args.caseId,
-        type: args.widgetType,
-        data: args.data,
-        createdAt: now,
-        updatedAt: now,
-      },
+    return await addWidgetToCase(
+      ctx,
+      user._id,
+      args.caseId,
+      args.widgetType,
+      args.data,
     );
-
-    const blockId = await ctx.db.insert(
-      "caseBlocks",
-      {
-        userId: user._id,
-        caseId: args.caseId,
-        type: "widget",
-        order,
-        widgetId,
-        createdAt: now,
-        updatedAt: now,
-      },
-    );
-
-    await ctx.db.patch(args.caseId, {
-      updatedAt: now,
-    });
-
-    return {
-      blockId,
-      widgetId,
-    };
   },
 });
+
 
 export const updateNarrative = mutation({
   args: {
@@ -232,26 +290,29 @@ export const remove = mutation({
     const user = await getCurrentUser(ctx);
 
     const block = await ctx.db.get(args.id);
-
+    
     if (!block || block.userId !== user._id) {
       throw new Error("Block not found.");
     }
-
-    if (block.widgetId) {
-      const widget = await ctx.db.get(block.widgetId);
-
-      if (widget && widget.userId === user._id) {
-        await ctx.db.delete(block.widgetId);
+    
+    if (block.widgetIds?.length) {
+      for (const widgetId of block.widgetIds) {
+        const widget = await ctx.db.get(widgetId);
+    
+        if (widget && widget.userId === user._id) {
+          await ctx.db.delete(widgetId);
+        }
       }
     }
-
+    
     await ctx.db.delete(args.id);
-
+    
     await ctx.db.patch(block.caseId, {
       updatedAt: Date.now(),
     });
-
+    
     return args.id;
+
   },
 });
 
@@ -345,13 +406,11 @@ export const createWidgetForAgent = internalMutation({
   },
 
   handler: async (ctx, args) => {
-    const now = Date.now();
-
     const thread = await ctx.db
       .query("agentThreads")
       .withIndex(
         "by_external_thread_id",
-        (q) =>
+        q =>
           q.eq(
             "externalThreadId",
             args.threadId,
@@ -374,7 +433,9 @@ export const createWidgetForAgent = internalMutation({
       );
     }
 
-    const agent = await ctx.db.get(thread.agentId);
+    const agent = await ctx.db.get(
+      thread.agentId,
+    );
 
     if (
       !agent ||
@@ -386,7 +447,9 @@ export const createWidgetForAgent = internalMutation({
       );
     }
 
-    const caseData = await ctx.db.get(args.caseId);
+    const caseData = await ctx.db.get(
+      args.caseId,
+    );
 
     if (
       !caseData ||
@@ -397,51 +460,12 @@ export const createWidgetForAgent = internalMutation({
       );
     }
 
-    const existing = await ctx.db
-      .query("caseBlocks")
-      .withIndex(
-        "by_case_id_order",
-        (q) => q.eq("caseId", args.caseId),
-      )
-      .order("desc")
-      .first();
-
-    const order = existing
-      ? existing.order + 1000
-      : 1000;
-
-    const widgetId = await ctx.db.insert(
-      "caseWidgets",
-      {
-        userId: args.userId,
-        caseId: args.caseId,
-        type: args.widgetType,
-        data: args.data,
-        createdAt: now,
-        updatedAt: now,
-      },
+    return await addWidgetToCase(
+      ctx,
+      args.userId,
+      args.caseId,
+      args.widgetType,
+      args.data,
     );
-
-    const blockId = await ctx.db.insert(
-      "caseBlocks",
-      {
-        userId: args.userId,
-        caseId: args.caseId,
-        type: "widget",
-        order,
-        widgetId,
-        createdAt: now,
-        updatedAt: now,
-      },
-    );
-
-    await ctx.db.patch(args.caseId, {
-      updatedAt: now,
-    });
-
-    return {
-      blockId,
-      widgetId,
-    };
   },
 });

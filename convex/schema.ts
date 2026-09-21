@@ -87,7 +87,9 @@ export default defineSchema({
     text: v.optional(v.string()),
   
     // Used when type === "widget"
-    widgetId: v.optional(v.id("caseWidgets")),
+    widgetIds: v.optional(
+      v.array(v.id("caseWidgets")),
+    ),
   
     // Activities that caused this narrative block to be generated.
     sourceActivityIds: v.optional(

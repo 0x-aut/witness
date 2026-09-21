@@ -101,77 +101,137 @@ export const create = internalMutation({
 export const createForAgent = internalMutation({
   args: {
     userId: v.string(),
+    threadId: v.string(),
     caseId: v.id("cases"),
     type: widgetType,
     data: v.any(),
   },
 
   handler: async (ctx, args) => {
-    // const user = await getCurrentUser(ctx);
+    const thread = await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_external_thread_id",
+        q =>
+          q.eq(
+            "externalThreadId",
+            args.threadId,
+          ),
+      )
+      .unique();
 
-    const caseData = await ctx.db.get(args.caseId);
+    if (
+      !thread ||
+      thread.userId !== args.userId
+    ) {
+      throw new Error(
+        "Agent thread not found.",
+      );
+    }
 
-    if (!caseData || caseData.userId !== args.userId) {
-      throw new Error("Case not found.");
+    if (thread.caseId !== args.caseId) {
+      throw new Error(
+        "Agent is not attached to this Case.",
+      );
+    }
+
+    const agent = await ctx.db.get(
+      thread.agentId,
+    );
+
+    if (
+      !agent ||
+      agent.userId !== args.userId ||
+      agent.caseId !== args.caseId
+    ) {
+      throw new Error(
+        "Agent not found.",
+      );
+    }
+
+    const caseData = await ctx.db.get(
+      args.caseId,
+    );
+
+    if (
+      !caseData ||
+      caseData.userId !== args.userId
+    ) {
+      throw new Error(
+        "Case not found.",
+      );
     }
 
     const now = Date.now();
 
-    return await ctx.db.insert("caseWidgets", {
-      userId: args.userId,
-      caseId: args.caseId,
-      type: args.type,
-      data: args.data,
-      createdAt: now,
+    const widgetId = await ctx.db.insert(
+      "caseWidgets",
+      {
+        userId: args.userId,
+        caseId: args.caseId,
+        type: args.type,
+        data: args.data,
+        createdAt: now,
+        updatedAt: now,
+      },
+    );
+
+    const latestBlock = await ctx.db
+      .query("caseBlocks")
+      .withIndex(
+        "by_case_id_order",
+        q => q.eq("caseId", args.caseId),
+      )
+      .order("desc")
+      .first();
+
+    if (
+      latestBlock &&
+      latestBlock.type === "widget"
+    ) {
+      await ctx.db.patch(
+        latestBlock._id,
+        {
+          widgetIds: [
+            ...(latestBlock.widgetIds ?? []),
+            widgetId,
+          ],
+          updatedAt: now,
+        },
+      );
+
+      await ctx.db.patch(args.caseId, {
+        updatedAt: now,
+      });
+
+      return {
+        widgetId,
+        blockId: latestBlock._id,
+      };
+    }
+
+    const blockId = await ctx.db.insert(
+      "caseBlocks",
+      {
+        userId: args.userId,
+        caseId: args.caseId,
+        type: "widget",
+        order: latestBlock
+          ? latestBlock.order + 1000
+          : 1000,
+        widgetIds: [widgetId],
+        createdAt: now,
+        updatedAt: now,
+      },
+    );
+
+    await ctx.db.patch(args.caseId, {
       updatedAt: now,
     });
-  },
-});
 
-export const update = internalMutation({
-  args: {
-    id: v.id("caseWidgets"),
-    data: v.optional(v.any()),
-  },
-
-  handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-
-    const widget = await ctx.db.get(args.id);
-
-    if (!widget || widget.userId !== user._id) {
-      throw new Error("Widget not found.");
-    }
-
-    if (args.data === undefined) {
-      return widget._id;
-    }
-
-    await ctx.db.patch(args.id, {
-      data: args.data,
-      updatedAt: Date.now(),
-    });
-
-    return args.id;
-  },
-});
-
-export const remove = internalMutation({
-  args: {
-    id: v.id("caseWidgets"),
-  },
-
-  handler: async (ctx, args) => {
-    const user = await getCurrentUser(ctx);
-
-    const widget = await ctx.db.get(args.id);
-
-    if (!widget || widget.userId !== user._id) {
-      throw new Error("Widget not found.");
-    }
-
-    await ctx.db.delete(args.id);
-
-    return args.id;
+    return {
+      widgetId,
+      blockId,
+    };
   },
 });

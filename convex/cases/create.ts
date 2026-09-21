@@ -49,11 +49,6 @@ export const createForAgent = internalMutation({
       throw new Error("User not found.");
     }
 
-    if (authUser) {
-      console.log(`${authUser.displayUsername}`)
-      console.log(authUser)
-    }
-
     const displayUsername =
       authUser.displayUsername ??
       authUser.name

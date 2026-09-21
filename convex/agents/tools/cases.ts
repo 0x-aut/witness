@@ -306,6 +306,7 @@ appear in the Case document.
       internal.cases.widgets.createForAgent,
       {
         userId: ctx.userId,
+        threadId: ctx.threadId,
         caseId: input.caseId as Id<"cases">,
         type: input.type,
         data: input.data,

@@ -28,32 +28,37 @@ export const get = query({
       .collect();
 
     const documentBlocks = [];
-
+    
     for (const block of blocks) {
       if (block.type === "narrative") {
         documentBlocks.push({
           ...block,
-          widget: null,
+          widgets: [],
         });
-
+    
         continue;
       }
-
-      if (!block.widgetId) {
+    
+      const widgets = [];
+    
+      for (const widgetId of block.widgetIds ?? []) {
+        const widget = await ctx.db.get(widgetId);
+    
+        if (
+          widget &&
+          widget.userId === user._id
+        ) {
+          widgets.push(widget);
+        }
+      }
+    
+      if (!widgets.length) {
         continue;
       }
-
-      const widget = await ctx.db.get(
-        block.widgetId,
-      );
-
-      if (!widget || widget.userId !== user._id) {
-        continue;
-      }
-
+    
       documentBlocks.push({
         ...block,
-        widget,
+        widgets,
       });
     }
 

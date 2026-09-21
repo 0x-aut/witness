@@ -19,6 +19,8 @@ const blocks = computed(
   () => documentQuery.data.value?.blocks ?? [],
 );
 
+console.log(blocks.value)
+
 const showFallback = computed(
   () =>
     documentQuery.data.value !== undefined &&
@@ -28,39 +30,22 @@ const showFallback = computed(
 </script>
 
 <template>
-  <article class="max-w-180">
-    <!-- Document loading -->
-    <div
-      v-if="documentQuery.data.value === undefined"
-      class="flex min-h-20 items-center"
+  <div class="space-y-8">
+    <template
+      v-for="block in blocks"
+      :key="block._id"
     >
-      <Loader color="#111111" />
-    </div>
+      <p
+        v-if="block.type === 'narrative'"
+        class="max-w-3xl text-[16px] leading-7 text-black/70"
+      >
+        {{ block.text }}
+      </p>
 
-    <!-- Persisted blocks -->
-    <div
-      v-else-if="blocks.length"
-      class="space-y-2.5"
-    >
-      <UIElementsCaseBlock
-        v-for="block in blocks"
-        :key="block._id"
-        :block="block"
+      <UIAppsCaseWidgetBlock
+        v-else
+        :widgets="block.widgets"
       />
-    </div>
-
-    <!-- Compatibility fallback for Cases created before blocks existed -->
-    <UIElementsCaseNarrativeBlock
-      v-else-if="showFallback"
-      :text="fallbackText!"
-    />
-
-    <!-- Empty document -->
-    <p
-      v-else
-      class="text-[15px] leading-8 text-black/30"
-    >
-      Witness has not added anything to this Case yet.
-    </p>
-  </article>
+    </template>
+  </div>
 </template>
