@@ -22,7 +22,7 @@ export const listThreadMessages = query({
       },
     );
 
-    if (thread?.userId !== user.userId) {
+    if (thread?.userId !== user._id) {
       throw new Error("Unauthorized.");
     }
 

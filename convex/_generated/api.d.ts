@@ -16,6 +16,7 @@ import type * as auth from "../auth.js";
 import type * as cases_create from "../cases/create.js";
 import type * as cases_get from "../cases/get.js";
 import type * as cases_list from "../cases/list.js";
+import type * as cases_remove from "../cases/remove.js";
 import type * as cases_update from "../cases/update.js";
 import type * as http from "../http.js";
 import type * as providers_qwen from "../providers/qwen.js";
@@ -35,6 +36,7 @@ declare const fullApi: ApiFromModules<{
   "cases/create": typeof cases_create;
   "cases/get": typeof cases_get;
   "cases/list": typeof cases_list;
+  "cases/remove": typeof cases_remove;
   "cases/update": typeof cases_update;
   http: typeof http;
   "providers/qwen": typeof providers_qwen;

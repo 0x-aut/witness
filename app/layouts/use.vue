@@ -96,7 +96,7 @@ const navbar = computed(() => {
 
   if (path.startsWith(`/${username}/cases`)) {
     return {
-      label: "Cases",
+      // label: "Cases",
     };
   }
 

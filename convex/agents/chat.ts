@@ -37,19 +37,103 @@ export const sendMessage = mutation({
     }
 
     const user = await getCurrentUser(ctx);
+    const userId = user._id;
+    const now = Date.now();
 
     let threadId = args.threadId;
+    let caseId;
+    let agentId;
 
     if (!threadId) {
-      threadId = await createThread(ctx, components.agent, {
-        userId: user.id,
-        title:
-          prompt.length > 60
-            ? `${prompt.slice(0, 57)}...`
-            : prompt,
+      const caseTitle =
+        prompt.length > 60
+          ? `${prompt.slice(0, 57)}...`
+          : prompt;
+
+      caseId = await ctx.db.insert("cases", {
+        userId,
+        title: caseTitle,
+        originalPrompt: prompt,
+        status: "active",
+        updatedAt: now,
       });
+
+      agentId = await ctx.db.insert("agents", {
+        userId,
+        caseId,
+        name: "Witness",
+        task: prompt,
+        status: "running",
+        updatedAt: now,
+      });
+
+      threadId = await createThread(
+        ctx,
+        components.agent,
+        {
+          userId,
+          title: caseTitle,
+        },
+      );
+
+      await ctx.db.insert("agentThreads", {
+        userId,
+        caseId,
+        agentId,
+        externalThreadId: threadId,
+        updatedAt: now,
+      });
+
+      const caseActivities = await ctx.db.insert("caseActivities", {
+        userId,
+        caseId,
+        agentId,
+        type: "created",
+        title: "Case created",
+        description: "Witness started working on this problem.",
+        createdAt: now,
+      });
+      
     } else {
       await authorizeThreadAccess(ctx, threadId);
+
+      const applicationThread = await ctx.db
+        .query("agentThreads")
+        .withIndex(
+          "by_external_thread_id",
+          (q) =>
+            q.eq(
+              "externalThreadId",
+              threadId!,
+            ),
+        )
+        .unique();
+
+      if (
+        !applicationThread ||
+        applicationThread.userId !== userId
+      ) {
+        throw new Error(
+          "Conversation is not linked to a Case.",
+        );
+      }
+
+      caseId = applicationThread.caseId;
+      agentId = applicationThread.agentId;
+
+      await ctx.db.patch(
+        applicationThread._id,
+        {
+          updatedAt: now,
+        },
+      );
+
+      await ctx.db.patch(
+        applicationThread.caseId,
+        {
+          updatedAt: now,
+        },
+      );
     }
 
     const { messageId, message } = await saveMessage(
@@ -57,7 +141,7 @@ export const sendMessage = mutation({
       components.agent,
       {
         threadId,
-        userId: user.id,
+        userId,
         prompt,
       },
     );
@@ -75,6 +159,8 @@ export const sendMessage = mutation({
       threadId,
       messageId,
       messageOrder: message.order,
+      caseId,
+      agentId,
     };
   },
 });

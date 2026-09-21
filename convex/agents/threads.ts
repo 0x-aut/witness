@@ -36,12 +36,13 @@ export async function authorizeThreadAccess(
   threadId: string,
 ) {
   const user = await getCurrentUser(ctx);
+  const userId = user._id;
 
   const thread = await getThreadMetadata(ctx, components.agent, {
     threadId,
   });
 
-  if (thread.userId !== user.id) {
+  if (thread.userId !== userId) {
     throw new Error("Unauthorized.");
   }
 
@@ -75,11 +76,12 @@ export const list = query({
 
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
+    const userId = user._id;
 
     return await ctx.runQuery(
       components.agent.threads.listThreadsByUserId,
       {
-        userId: user.id,
+        userId,
         paginationOpts: args.paginationOpts,
       },
     );
@@ -93,9 +95,10 @@ export const create = mutation({
 
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
+    const userId = user._id;
 
     const threadId = await createThread(ctx, components.agent, {
-      userId: user.id,
+      userId,
       title: args.title ?? "Witness",
     });
 

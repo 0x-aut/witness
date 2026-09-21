@@ -1,15 +1,17 @@
 import { query } from "../_generated/server";
-import { v } from "convex/values";
+import { getCurrentUser } from "../agents/threads";
 
 export const list = query({
-  args: {
-    userId: v.string(),
-  },
+  args: {},
 
-  handler: async (ctx, args) => {
+  handler: async (ctx) => {
+    const user = await getCurrentUser(ctx);
+
     return await ctx.db
       .query("cases")
-      .withIndex("by_user_id", (q) => q.eq("userId", args.userId))
+      .withIndex("by_user_id", (q) =>
+        q.eq("userId", user._id),
+      )
       .order("desc")
       .collect();
   },

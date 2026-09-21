@@ -25,6 +25,23 @@ export default defineSchema({
     .index("by_user_id", ["userId"])
     .index("by_user_id_status", ["userId", "status"]),
 
+  caseActivities: defineTable({
+    userId: v.string(),
+    caseId: v.id("cases"),
+    agentId: v.optional(v.id("agents")),
+  
+    type: v.union(
+      v.literal("created"),
+      v.literal("status_changed"),
+    ),
+  
+    title: v.string(),
+    description: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_case_id", ["caseId"])
+    .index("by_user_id", ["userId"]),
+
   agents: defineTable({
     userId: v.string(),
     caseId: v.id("cases"),
@@ -53,27 +70,9 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_case_id", ["caseId"])
-    .index("by_agent_id", ["agentId"]),
-
-  // agentMessage: defineTable({
-  //   userId: v.string(),
-  //   caseId: v.id("cases"),
-  //   agentId: v.id("agents"),
-  //   threadId: v.id("agentThreads"),
-
-  //   role: v.union(
-  //     v.literal("user"),
-  //     v.literal("assistant"),
-  //     v.literal("tool"),
-  //   ),
-
-  //   content: v.string(),
-  //   metadata: v.optional(v.any()),
-  // })
-  //   .index("by_case_id", ["caseId"])
-  //   .index("by_agent_id", ["agentId"])
-  //   .index("by_thread_id", ["threadId"]),
-
+    .index("by_agent_id", ["agentId"])
+    .index("by_external_thread_id", ["externalThreadId"]),
+  
   inboxItems: defineTable({
     userId: v.string(),
     caseId: v.optional(v.id("cases")),

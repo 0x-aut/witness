@@ -235,10 +235,18 @@ export function useAgentChat(
      * Persisted messages.
      */
     for (const message of persisted) {
-      if (activeOrders.has(message.order)) {
+      /*
+       * User messages share the same order as the assistant
+       * response generated from them. Keep the user message
+       * visible while that response is streaming.
+       */
+      if (
+        activeOrders.has(message.order) &&
+        message.role !== "user"
+      ) {
         continue;
       }
-
+    
       result.push({
         id: message.key,
         role:
