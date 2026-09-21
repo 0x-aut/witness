@@ -658,29 +658,22 @@ export const resolveUserAction =
         },
       );
 
-      await ctx.db.insert(
-        "caseActivities",
-        {
-          userId: user._id,
-          caseId:
-            action.caseId,
-          agentId:
-            action.agentId,
-          type:
-            "user_action",
-          title:
-            "User uploaded documents",
-          description:
-            response,
-          metadata: {
-            actionId:
-              action._id,
-            fileIds,
-          },
-          createdAt:
-            now,
-        },
-      );
+      const activityTitle = action.type === "upload_file"
+        ? "User uploaded documents"
+        : action.type === "question"
+          ? "User answered a question"
+          : "User approved an action";
+      
+      await ctx.db.insert("caseActivities", {
+        userId: user._id,
+        caseId: action.caseId,
+        agentId: action.agentId,
+        type: "user_action",
+        title: activityTitle,
+        description: response,
+        metadata: { actionId: action._id, actionType: action.type, fileIds },
+        createdAt: now,
+      });
 
       /*
        * IMPORTANT:
@@ -739,8 +732,8 @@ export const resolveUserAction =
 export const declineUserAction =
   mutation({
     args: {
-      actionId:
-        v.id("userActions"),
+      actionId: v.id("userActions"),
+      response: v.optional(v.string()),
     },
 
     handler: async (ctx, args) => {
@@ -826,19 +819,25 @@ export const declineUserAction =
         );
       }
 
+      const response = args.response?.trim() || (
+        action.type === "question"
+          ? "I don't want to answer that. Continue without my answer if you can."
+          : action.type === "approval"
+            ? "I don't approve this action. Continue without it if you can."
+            : "I don't have the requested documents right now. Continue without them if you can."
+      );
+
       /*
        * Cancel ONLY the user action.
        *
        * This is deliberately NOT cancelGeneration().
        * The Agent should continue working.
        */
-      await ctx.db.patch(
-        action._id,
-        {
-          status: "cancelled",
-          completedAt: now,
-        },
-      );
+      await ctx.db.patch(action._id, {
+        status: "cancelled",
+        response,
+        completedAt: now,
+      });
 
       /*
        * Mark the Inbox item read.
@@ -907,8 +906,8 @@ export const declineUserAction =
           {
             data: {
               ...actionWidget.data,
-              status:
-                "cancelled",
+              status: "cancelled",
+              response,
             },
             updatedAt: now,
           },
@@ -934,38 +933,27 @@ export const declineUserAction =
         },
       );
 
-      await ctx.db.insert(
-        "caseActivities",
-        {
-          userId: user._id,
-          caseId:
-            action.caseId,
-          agentId:
-            action.agentId,
-          type:
-            "user_action",
-          title:
-            "User declined the document request",
-          description:
-            "Witness requested documents, but the user chose to continue without uploading them.",
-          metadata: {
-            actionId:
-              action._id,
-            actionType:
-              action.type,
-            declined: true,
-          },
-          createdAt:
-            now,
-        },
-      );
+      const activityTitle = action.type === "upload_file"
+        ? "User declined the document request"
+        : action.type === "question"
+          ? "User skipped the question"
+          : "User declined the approval";
+      
+      await ctx.db.insert("caseActivities", {
+        userId: user._id,
+        caseId: action.caseId,
+        agentId: action.agentId,
+        type: "user_action",
+        title: activityTitle,
+        description: response,
+        metadata: { actionId: action._id, actionType: action.type, declined: true },
+        createdAt: now,
+      });
 
       /*
        * Give the Agent an explicit continuation message so it knows
        * the requested evidence is unavailable and should continue.
        */
-      const response =
-        "I don't have the requested documents right now. Continue without them if you can.";
 
       const {
         messageId,

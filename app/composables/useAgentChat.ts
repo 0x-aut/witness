@@ -882,194 +882,96 @@ export function useAgentChat(
     },
   );
 
-  async function resolveUserAction(
-    actionId: string,
-    response?: string,
-    files: File[] = [],
-  ) {
-    if (
-      isUploadingFiles.value ||
-      isDecliningUserAction.value
-    ) {
+  async function resolveUserAction(actionId: string, response?: string, files: File[] = []) {
+    if (isUploadingFiles.value || isDecliningUserAction.value) {
       return;
     }
-
-    if (!files.length) {
-      throw new Error(
-        "At least one document is required.",
-      );
+  
+    if (!files.length && !response?.trim()) {
+      throw new Error("Please provide an answer.");
     }
-
+  
     requestError.value = "";
-
-    assistantCountBeforeSend =
-      messages.value.filter(
-        (message) =>
-          message.role ===
-          "assistant",
-      ).length;
-
-    waitingForResponse.value =
-      true;
-
-    isUploadingFiles.value =
-      true;
-
+  
+    assistantCountBeforeSend = messages.value.filter((message) => message.role === "assistant").length;
+    waitingForResponse.value = true;
+    isUploadingFiles.value = files.length > 0;
+  
     try {
-      const uploadedFiles: Array<{
-        storageId: string;
-        filename: string;
-        mimeType: string;
-        size: number;
-      }> = [];
-
+      const uploadedFiles: Array<{ storageId: string; filename: string; mimeType: string; size: number }> = [];
+  
       for (const file of files) {
-        const uploadUrl =
-          await generateUploadUrlMutation(
-            {},
-          );
-
-        const uploadResponse =
-          await fetch(
-            uploadUrl,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type":
-                  file.type ||
-                  "application/octet-stream",
-              },
-              body: file,
-            },
-          );
-
-        if (
-          !uploadResponse.ok
-        ) {
-          throw new Error(
-            `Failed to upload ${file.name}.`,
-          );
+        const uploadUrl = await generateUploadUrlMutation({});
+  
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "POST",
+          headers: { "Content-Type": file.type || "application/octet-stream" },
+          body: file,
+        });
+  
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload ${file.name}.`);
         }
-
-        const body =
-          (await uploadResponse.json()) as {
-            storageId: string;
-          };
-
-        if (
-          !body.storageId
-        ) {
-          throw new Error(
-            `Upload failed for ${file.name}.`,
-          );
+  
+        const body = (await uploadResponse.json()) as { storageId: string };
+  
+        if (!body.storageId) {
+          throw new Error(`Upload failed for ${file.name}.`);
         }
-
+  
         uploadedFiles.push({
-          storageId:
-            body.storageId,
-          filename:
-            file.name,
-          mimeType:
-            file.type ||
-            "application/octet-stream",
+          storageId: body.storageId,
+          filename: file.name,
+          mimeType: file.type || "application/octet-stream",
           size: file.size,
         });
       }
-
-      const result =
-        await resolveUserActionMutation(
-          {
-            actionId,
-            response,
-            files:
-              uploadedFiles,
-          },
-        );
-
-      dismissedActionId.value =
-        actionId;
-
-      if (
-        result &&
-        typeof result.messageOrder ===
-          "number"
-      ) {
-        generationOrder.value =
-          result.messageOrder;
+  
+      const result = await resolveUserActionMutation({
+        actionId,
+        response,
+        files: uploadedFiles,
+      });
+  
+      dismissedActionId.value = actionId;
+  
+      if (result && typeof result.messageOrder === "number") {
+        generationOrder.value = result.messageOrder;
       }
     } catch (error) {
-      waitingForResponse.value =
-        false;
-
-      requestError.value =
-        error instanceof Error
-          ? error.message
-          : "The documents could not be uploaded.";
-
+      waitingForResponse.value = false;
+      requestError.value = error instanceof Error ? error.message : "Witness could not process your response.";
       throw error;
     } finally {
-      isUploadingFiles.value =
-        false;
+      isUploadingFiles.value = false;
     }
   }
 
-  async function declineUserAction(
-    actionId: string,
-  ) {
-    if (
-      isUploadingFiles.value ||
-      isDecliningUserAction.value
-    ) {
+  async function declineUserAction(actionId: string, response?: string) {
+    if (isUploadingFiles.value || isDecliningUserAction.value) {
       return;
     }
-
+  
     requestError.value = "";
-
-    assistantCountBeforeSend =
-      messages.value.filter(
-        (message) =>
-          message.role ===
-          "assistant",
-      ).length;
-
-    waitingForResponse.value =
-      true;
-
-    isDecliningUserAction.value =
-      true;
-
+  
+    assistantCountBeforeSend = messages.value.filter((message) => message.role === "assistant").length;
+    waitingForResponse.value = true;
+    isDecliningUserAction.value = true;
+  
     try {
-      const result =
-        await declineUserActionMutation(
-          {
-            actionId,
-          },
-        );
-
-      dismissedActionId.value =
-        actionId;
-
-      if (
-        result &&
-        typeof result.messageOrder ===
-          "number"
-      ) {
-        generationOrder.value =
-          result.messageOrder;
+      const result = await declineUserActionMutation({ actionId, response });
+  
+      dismissedActionId.value = actionId;
+  
+      if (result && typeof result.messageOrder === "number") {
+        generationOrder.value = result.messageOrder;
       }
     } catch (error) {
-      waitingForResponse.value =
-        false;
-
-      requestError.value =
-        error instanceof Error
-          ? error.message
-          : "Witness could not continue right now.";
-
+      waitingForResponse.value = false;
+      requestError.value = error instanceof Error ? error.message : "Witness could not continue right now.";
       throw error;
     } finally {
-      isDecliningUserAction.value =
-        false;
+      isDecliningUserAction.value = false;
     }
   }
 

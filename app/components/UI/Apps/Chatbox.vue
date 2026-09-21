@@ -50,9 +50,9 @@ const {
 
 const route = useRoute();
 
-const username =
-  route.params.username as string;
-
+const username = route.params.username as string;
+const showQuestionInterruption = computed(() => pendingUserAction.value?.type === "question");
+const showApprovalInterruption = computed(() => pendingUserAction.value?.type === "approval");
 const message = ref("");
 const textareaRef =
   ref<HTMLTextAreaElement | null>(
@@ -80,12 +80,7 @@ const hasDraft = computed(
       .length > 0,
 );
 
-const showUploadInterruption =
-  computed(
-    () =>
-      pendingUserAction.value
-        ?.type === "upload_file",
-  );
+const showUploadInterruption = computed(() => pendingUserAction.value?.type === "upload_file",);
 
 const hasStarted = computed(
   () =>
@@ -373,23 +368,15 @@ function clearPendingFiles() {
 function fileStackStyle(
   index: number,
 ) {
-  const rotations = [
-    5,
-    -7,
-    7,
-    -5,
-  ];
+  const rotations = [5, -7, 7, -5, ];
 
-  const count =
-    displayedFiles.value.length;
+  const count = displayedFiles.value.length;
 
-  const center =
-    (count - 1) / 2;
+  const center = (count - 1) / 2;
 
   const gap = 22;
 
-  const translateX =
-    (index - center) * gap;
+  const translateX = (index - center) * gap;
 
   return {
     transform: `translate(-50%, -50%) translateX(${translateX}px) rotate(${rotations[index % rotations.length]}deg)`,
@@ -430,6 +417,70 @@ async function sendPendingFiles() {
       error instanceof Error
         ? error.message
         : "The documents could not be uploaded.";
+  }
+}
+
+async function allowApproval() {
+  const action = pendingUserAction.value;
+
+  if (!action || action.type !== "approval" || isCreating.value) {
+    return;
+  }
+
+  requestError.value = "";
+
+  try {
+    await resolveUserAction(action.id, "Allowed");
+  } catch (error) {
+    requestError.value = error instanceof Error ? error.message : "Witness could not process the approval.";
+  }
+}
+
+async function denyApproval() {
+  const action = pendingUserAction.value;
+
+  if (!action || action.type !== "approval" || isCreating.value) {
+    return;
+  }
+
+  requestError.value = "";
+
+  try {
+    await declineUserAction(action.id, "Denied");
+  } catch (error) {
+    requestError.value = error instanceof Error ? error.message : "Witness could not continue right now.";
+  }
+}
+
+async function submitQuestionAnswer(response: string) {
+  const action = pendingUserAction.value;
+
+  if (!action || action.type !== "question" || isCreating.value) {
+    return;
+  }
+
+  requestError.value = "";
+
+  try {
+    await resolveUserAction(action.id, response);
+  } catch (error) {
+    requestError.value = error instanceof Error ? error.message : "Witness could not process your answer.";
+  }
+}
+
+async function declineQuestion() {
+  const action = pendingUserAction.value;
+
+  if (!action || action.type !== "question" || isCreating.value) {
+    return;
+  }
+
+  requestError.value = "";
+
+  try {
+    await declineUserAction(action.id);
+  } catch (error) {
+    requestError.value = error instanceof Error ? error.message : "Witness could not continue right now.";
   }
 }
 
@@ -620,9 +671,7 @@ onUnmounted(() => {
             <!-- ================================================== -->
 
             <div
-              v-if="
-                showUploadInterruption
-              "
+              v-if="showUploadInterruption"
               key="upload-interruption"
               class="flex w-full items-center justify-center gap-x-2"
               role="group"
@@ -901,6 +950,24 @@ onUnmounted(() => {
                 </button>
               </SmoothCorners>
             </div>
+
+            <UIElementsAgentApprovalPill
+              v-else-if="showApprovalInterruption"
+              key="approval-interruption"
+              :action="pendingUserAction"
+              :busy="isCreating"
+              @allow="allowApproval"
+              @deny="denyApproval"
+            />
+
+            <UIElementsAgentQuestionPill
+              v-else-if="showQuestionInterruption"
+              key="question-interruption"
+              :action="pendingUserAction"
+              :busy="isCreating"
+              @answer="submitQuestionAnswer"
+              @decline="declineQuestion"
+            />
 
             <!-- ================================================== -->
             <!-- NORMAL CHAT -->
