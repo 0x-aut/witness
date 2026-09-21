@@ -1,4 +1,4 @@
-import { mutation } from "../_generated/server";
+import { internalMutation, mutation } from "../_generated/server";
 import { v } from "convex/values";
 
 import { getCurrentUser } from "../agents/threads";
@@ -79,6 +79,42 @@ export const remove = mutation({
     for (const file of files) {
       await ctx.storage.delete(file.storageId);
       await ctx.db.delete(file._id);
+    }
+
+    // Delete case activities
+    const activities = await ctx.db
+      .query("caseActivities")
+      .withIndex("by_case_id", (q) =>
+        q.eq("caseId", args.id),
+      )
+      .collect();
+    
+    for (const activity of activities) {
+      await ctx.db.delete(activity._id);
+    }
+    
+    // Delete case blocks
+    const blocks = await ctx.db
+      .query("caseBlocks")
+      .withIndex("by_case_id", (q) =>
+        q.eq("caseId", args.id),
+      )
+      .collect();
+    
+    for (const block of blocks) {
+      await ctx.db.delete(block._id);
+    }
+    
+    // Delete case widgets
+    const widgets = await ctx.db
+      .query("caseWidgets")
+      .withIndex("by_case_id", (q) =>
+        q.eq("caseId", args.id),
+      )
+      .collect();
+    
+    for (const widget of widgets) {
+      await ctx.db.delete(widget._id);
     }
 
     await ctx.db.delete(args.id);

@@ -17,6 +17,7 @@ const props = defineProps<{
 // falling back to a local rotation only while the backend sends none.
 const {
   messages,
+  threadId,
   isLoading,
   isCreating,
   currentStepText,
@@ -101,6 +102,7 @@ async function sendMessage() {
   try {
     await sendAgentMessage(userMessage);
     pendingDraft.value = "";
+    await navigateTo(`/${username}/agent/${threadId.value}`);
   } catch (error) {
     if (abortedRef.value) return;
     if (error instanceof DOMException && error.name === "AbortError") return;

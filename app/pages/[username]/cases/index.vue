@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { api } from "@@/convex/_generated/api";
-import { Trash2 } from "@lucide/dev";
+// import { Trash2 } from "@lucide/dev";
 
 definePageMeta({
   layout: "use",

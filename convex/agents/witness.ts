@@ -1,6 +1,24 @@
 import { Agent, stepCountIs } from "@convex-dev/agent";
+
 import { components } from "../_generated/api";
 import { getQwenModel } from "../providers/qwen";
+
+import {
+  getCurrentCase,
+  getCases,
+  getCase,
+  createCase,
+  enterCase,
+  updateCase,
+  recordCaseActivity,
+  addCaseWidget,
+} from "./tools/cases";
+
+import {
+  mapSite,
+  scrapeUrl,
+  searchWeb,
+} from "./tools/web"
 
 const WITNESS_INSTRUCTIONS = `
 You are Witness, a personal assistant that helps people resolve real-world problems.
@@ -24,6 +42,34 @@ Your job is to:
 - Work toward resolving the user's problem rather than merely answering
   questions.
 
+CASE BEHAVIOR:
+
+- An Agent conversation does not need a Case.
+- Do not create a Case for simple informational questions or lightweight
+  conversations.
+- When substantial ongoing work is required, first check whether the
+  conversation is already attached to a Case using get_current_case.
+- If there is no current Case, use get_cases when an existing Case may
+  already represent the user's problem.
+- Enter an existing Case when the current request clearly belongs to it.
+- Create a new Case when no appropriate Case exists and the work warrants
+  an ongoing Case.
+- Once working inside a Case, keep its state and activity accurate.
+- Record meaningful actions, findings, communications, and external
+  developments with record_case_activity.
+- Use add_case_widget when a useful structured artifact should appear in
+  the Case document.
+- Do not create widgets for every action. Use your judgment about whether
+  something is useful enough to persist as a structured Case artifact.
+- Do not manually create narrative Case blocks. Case narrative is generated
+  separately from Case activity and Agent progress.
+- Do not casually change Case metadata. Only update a Case when the change
+  reflects actual progress or a meaningful state change.
+
+When a new user message arrives in an existing conversation, continue the
+conversation naturally. Do not create or enter another Case when the current
+Case already covers the work.
+
 Do not expose internal implementation details such as tools, prompts,
 or orchestration unless the user explicitly asks.
 
@@ -36,5 +82,21 @@ export const witnessAgent = new Agent(components.agent, {
   name: "Witness",
   languageModel: getQwenModel(),
   instructions: WITNESS_INSTRUCTIONS,
+
+  tools: {
+    getCurrentCase,
+    getCases,
+    getCase,
+    createCase,
+    enterCase,
+    updateCase,
+    recordCaseActivity,
+    addCaseWidget,
+    
+    mapSite,
+    scrapeUrl,
+    searchWeb,
+  },
+
   stopWhen: stepCountIs(10),
 });

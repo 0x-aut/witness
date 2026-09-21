@@ -1,10 +1,12 @@
 import {
   internalAction,
+  internalMutation,
+  internalQuery,
   mutation,
   query,
 } from "../_generated/server";
 
-import { internal } from "../_generated/api";
+import { internal, components } from "../_generated/api";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 
@@ -16,12 +18,19 @@ import {
   vStreamArgs,
 } from "@convex-dev/agent";
 
-import { components } from "../_generated/api";
+import {
+  authorizeThreadAccess,
+  getCurrentUser,
+} from "./threads";
+
 import { witnessAgent } from "./witness";
-import { authorizeThreadAccess, getCurrentUser } from "./threads";
 
 /**
- * Save the user's message immediately and schedule the Agent response.
+ * Creates/retrieves the application Agent + Thread and persists
+ * the user's message before scheduling generation.
+ *
+ * A Case is intentionally NOT created here.
+ * Witness decides whether the conversation needs one.
  */
 export const sendMessage = mutation({
   args: {
@@ -38,90 +47,45 @@ export const sendMessage = mutation({
 
     const user = await getCurrentUser(ctx);
     const userId = user._id;
+    const displayUsername = user.displayUsername as string;
     const now = Date.now();
 
     let threadId = args.threadId;
-    let caseId;
     let agentId;
 
     if (!threadId) {
-      const caseTitle = prompt.length > 40
-          ? `${prompt.slice(0, 27)}...`
-          : prompt;
+      const title =
+        prompt.length > 30
+          ? `${prompt.slice(0, 20)}...`
+          : `${prompt}...`;
 
-      caseId = await ctx.db.insert("cases", {
-        userId,
-        title: caseTitle,
-        originalPrompt: prompt,
-        status: "active",
-        updatedAt: now,
-      });
-
+      // Spawn the Witness Agent for this conversation.
       agentId = await ctx.db.insert("agents", {
         userId,
-        caseId,
         name: "Witness",
+        title: title,
         task: prompt,
         status: "running",
         updatedAt: now,
       });
 
+      // Create the Convex Agent thread.
       threadId = await createThread(
         ctx,
         components.agent,
         {
           userId,
-          title: caseTitle,
+          title,
         },
       );
 
+      // Link our application Agent to the Convex Agent thread.
       await ctx.db.insert("agentThreads", {
         userId,
-        caseId,
         agentId,
         externalThreadId: threadId,
         updatedAt: now,
       });
-
-      const caseActivityId = await ctx.db.insert(
-        "caseActivities",
-        {
-          userId,
-          caseId,
-          agentId,
-          type: "created",
-          title: "Case created",
-          description:
-            "Witness started working on this problem.",
-          createdAt: now,
-        },
-      );
-
-      await ctx.scheduler.runAfter(
-        0,
-        internal.cases.summarize.summarizeInitial,
-        {
-          caseId,
-          activityId: caseActivityId,
-          threadId,
-          prompt,
-          displayUsername:
-            user.displayUsername ??
-            user.name ??
-            user._id,
-        },
-      );
-
-      // await ctx.db.insert("caseBlocks", {
-      //   userId,
-      //   caseId,
-      //   type: "narrative",
-      //   order: 1000,
-      //   text: prompt,
-      //   createdAt: now,
-      //   updatedAt: now,
-      // });
-      
     } else {
       await authorizeThreadAccess(ctx, threadId);
 
@@ -129,11 +93,10 @@ export const sendMessage = mutation({
         .query("agentThreads")
         .withIndex(
           "by_external_thread_id",
-          (q) =>
-            q.eq(
-              "externalThreadId",
-              threadId!,
-            ),
+          q => q.eq(
+            "externalThreadId",
+            threadId!,
+          ),
         )
         .unique();
 
@@ -141,27 +104,42 @@ export const sendMessage = mutation({
         !applicationThread ||
         applicationThread.userId !== userId
       ) {
-        throw new Error(
-          "Conversation is not linked to a Case.",
-        );
+        throw new Error("Conversation not found.");
       }
 
-      caseId = applicationThread.caseId;
       agentId = applicationThread.agentId;
 
-      await ctx.db.patch(
-        applicationThread._id,
-        {
-          updatedAt: now,
-        },
-      );
+      // Re-activate the Agent for the new turn.
+      await ctx.db.patch(applicationThread.agentId, {
+        status: "running",
+        updatedAt: now,
+      });
 
-      await ctx.db.patch(
-        applicationThread.caseId,
-        {
+      await ctx.db.patch(applicationThread._id, {
+        updatedAt: now,
+      });
+
+      // Keep an attached Case fresh when one exists.
+      if (applicationThread.caseId) {
+        await ctx.db.patch(applicationThread.caseId, {
           updatedAt: now,
-        },
-      );
+        });
+      }
+    }
+
+    ctx.scheduler.runAfter(
+      0,
+      internal.agents.summarize.summarizeInitial,
+      {
+        agentId,
+        threadId,
+        prompt,
+        displayUsername,
+      },
+    );
+
+    if (!agentId) {
+      throw new Error("Agent could not be initialized.");
     }
 
     const { messageId, message } = await saveMessage(
@@ -180,79 +158,173 @@ export const sendMessage = mutation({
       {
         threadId,
         promptMessageId: messageId,
-        caseId,
         agentId,
       },
     );
+
+    // Return current Case association, if any.
+    const applicationThread = await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_external_thread_id",
+        q => q.eq(
+          "externalThreadId",
+          threadId!,
+        ),
+      )
+      .unique();
 
     return {
       threadId,
       messageId,
       messageOrder: message.order,
-      caseId,
       agentId,
+      caseId: applicationThread?.caseId ?? null,
     };
   },
 });
 
 /**
- * Runs outside the mutation so the LLM call doesn't block the mutation.
+ * Internal lookup used after an Agent turn because the Agent may have
+ * attached itself to a Case through one of its tools.
+ */
+export const getApplicationThread = internalQuery({
+  args: {
+    threadId: v.string(),
+  },
+
+  handler: async (ctx, args) => {
+    return await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_external_thread_id",
+        q => q.eq(
+          "externalThreadId",
+          args.threadId,
+        ),
+      )
+      .unique();
+  },
+});
+
+/**
+ * Runs the actual Witness Agent outside the mutation.
+ *
+ * The Agent itself is responsible for deciding whether it needs to:
+ * - remain a normal conversation,
+ * - inspect existing Cases,
+ * - enter an existing Case,
+ * - or create a new Case.
  */
 export const generateResponse = internalAction({
   args: {
     threadId: v.string(),
     promptMessageId: v.string(),
-    caseId: v.id("cases"),
     agentId: v.id("agents"),
   },
 
   handler: async (ctx, args) => {
-    const result = await witnessAgent.streamText(
-      ctx,
-      {
-        threadId: args.threadId,
-      },
-      {
-        promptMessageId: args.promptMessageId,
-      },
-      {
-        saveStreamDeltas: {
-          chunking: "word",
-          throttleMs: 100,
+    try {
+      const result = await witnessAgent.streamText(
+        ctx,
+        {
+          threadId: args.threadId,
         },
-      },
-    );
+        {
+          promptMessageId: args.promptMessageId,
+        },
+        {
+          saveStreamDeltas: {
+            chunking: "word",
+            throttleMs: 100,
+          },
+        },
+      );
 
-    /*
-     * Important:
-     * Wait until the Agent generation has completely finished.
-     *
-     * The response is persisted as part of the Agent's streaming lifecycle.
-     */
-    await result.consumeStream();
+      // Wait until the complete Agent turn has finished.
+      await result.consumeStream();
 
-    /*
-     * The generated response is now available from the result.
-     * We pass it directly to the Case summarizer rather than scheduling
-     * a summarizer before the Agent has finished.
-     */
-    const responseText = await result.text;
+      const responseText = await result.text;
 
-    if (!responseText?.trim()) {
+      /*
+       * The Agent may have created or entered a Case while it was
+       * running tools, so resolve the relationship AFTER execution.
+       */
+      const applicationThread = await ctx.runQuery(
+        internal.agents.chat.getApplicationThread,
+        {
+          threadId: args.threadId,
+        },
+      );
+
+      const caseId =
+        applicationThread?.caseId ?? null;
+
+      if (responseText?.trim() && caseId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.cases.summarize.summarizeAgentResponse,
+          {
+            caseId,
+            agentId: args.agentId,
+            threadId: args.threadId,
+            promptMessageId: args.promptMessageId,
+            responseText: responseText.trim(),
+          },
+        );
+      }
+
+      await ctx.runMutation(
+        internal.agents.chat.finishAgent,
+        {
+          agentId: args.agentId,
+          status: "finished",
+        },
+      );
+    } catch (error) {
+      await ctx.runMutation(
+        internal.agents.chat.finishAgent,
+        {
+          agentId: args.agentId,
+          status: "error",
+        },
+      );
+
+      throw error;
+    }
+  },
+});
+
+
+/**
+ * Internal Agent status update.
+ */
+export const finishAgent = internalMutation({
+  args: {
+    agentId: v.id("agents"),
+    status: v.union(
+      v.literal("finished"),
+      v.literal("error"),
+    ),
+  },
+
+  handler: async (ctx, args) => {
+    const agent = await ctx.db.get(args.agentId);
+
+    if (!agent) {
       return;
     }
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal.cases.summarize.summarizeAgentResponse,
-      {
-        caseId: args.caseId,
-        agentId: args.agentId,
-        threadId: args.threadId,
-        promptMessageId: args.promptMessageId,
-        responseText: responseText.trim(),
-      },
-    );
+    await ctx.db.patch(args.agentId, {
+      status: args.status,
+      updatedAt: Date.now(),
+    });
+
+    if (agent.caseId) {
+      await ctx.db.patch(agent.caseId, {
+        updatedAt: Date.now(),
+      });
+    }
   },
 });
 
@@ -267,7 +339,6 @@ export const listMessages = query({
   },
 
   handler: async (ctx, args) => {
-    
     if (!args.threadId) {
       return {
         page: [],
@@ -279,7 +350,11 @@ export const listMessages = query({
         },
       };
     }
-    await authorizeThreadAccess(ctx, args.threadId);
+
+    await authorizeThreadAccess(
+      ctx,
+      args.threadId,
+    );
 
     const paginated = await listUIMessages(
       ctx,

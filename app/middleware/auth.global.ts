@@ -7,11 +7,11 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return;
   }
 
-  if (import.meta.server) {
-    return;
-  }
+  // if (import.meta.server) {
+  //   return;
+  // }
 
-  const { data: session, error } = await authClient.getSession();
+  const { data: session, error } = await authClient.getSession(useFetch);
 
   if (error || !session?.user) {
     return navigateTo({

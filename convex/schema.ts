@@ -103,8 +103,9 @@ export default defineSchema({
 
   agents: defineTable({
     userId: v.string(),
-    caseId: v.id("cases"),
+    caseId: v.optional(v.id("cases")),
     name: v.string(),
+    title: v.optional(v.string()),
     task: v.string(),
     status: v.union(
       v.literal("running"),
@@ -122,7 +123,7 @@ export default defineSchema({
 
   agentThreads: defineTable({
     userId: v.string(),
-    caseId: v.id("cases"),
+    caseId: v.optional(v.id("cases")),
     agentId: v.id("agents"),
     externalThreadId: v.optional(v.string()),
     updatedAt: v.number(),

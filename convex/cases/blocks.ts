@@ -1,4 +1,6 @@
 import {
+  internalMutation,
+  internalQuery,
   mutation,
   query,
   type QueryCtx,
@@ -320,5 +322,126 @@ export const reorder = mutation({
     });
 
     return true;
+  },
+});
+
+
+export const createWidgetForAgent = internalMutation({
+  args: {
+    userId: v.string(),
+    threadId: v.string(),
+    caseId: v.id("cases"),
+    widgetType: v.union(
+      v.literal("email"),
+      v.literal("research"),
+      v.literal("document"),
+      v.literal("action"),
+      v.literal("approval"),
+      v.literal("question"),
+      v.literal("link"),
+      v.literal("result"),
+    ),
+    data: v.any(),
+  },
+
+  handler: async (ctx, args) => {
+    const now = Date.now();
+
+    const thread = await ctx.db
+      .query("agentThreads")
+      .withIndex(
+        "by_external_thread_id",
+        (q) =>
+          q.eq(
+            "externalThreadId",
+            args.threadId,
+          ),
+      )
+      .unique();
+
+    if (
+      !thread ||
+      thread.userId !== args.userId
+    ) {
+      throw new Error(
+        "Agent thread not found.",
+      );
+    }
+
+    if (thread.caseId !== args.caseId) {
+      throw new Error(
+        "Agent is not attached to this Case.",
+      );
+    }
+
+    const agent = await ctx.db.get(thread.agentId);
+
+    if (
+      !agent ||
+      agent.userId !== args.userId ||
+      agent.caseId !== args.caseId
+    ) {
+      throw new Error(
+        "Agent not found.",
+      );
+    }
+
+    const caseData = await ctx.db.get(args.caseId);
+
+    if (
+      !caseData ||
+      caseData.userId !== args.userId
+    ) {
+      throw new Error(
+        "Case not found.",
+      );
+    }
+
+    const existing = await ctx.db
+      .query("caseBlocks")
+      .withIndex(
+        "by_case_id_order",
+        (q) => q.eq("caseId", args.caseId),
+      )
+      .order("desc")
+      .first();
+
+    const order = existing
+      ? existing.order + 1000
+      : 1000;
+
+    const widgetId = await ctx.db.insert(
+      "caseWidgets",
+      {
+        userId: args.userId,
+        caseId: args.caseId,
+        type: args.widgetType,
+        data: args.data,
+        createdAt: now,
+        updatedAt: now,
+      },
+    );
+
+    const blockId = await ctx.db.insert(
+      "caseBlocks",
+      {
+        userId: args.userId,
+        caseId: args.caseId,
+        type: "widget",
+        order,
+        widgetId,
+        createdAt: now,
+        updatedAt: now,
+      },
+    );
+
+    await ctx.db.patch(args.caseId, {
+      updatedAt: now,
+    });
+
+    return {
+      blockId,
+      widgetId,
+    };
   },
 });

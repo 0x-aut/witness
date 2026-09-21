@@ -1,6 +1,8 @@
 import {
   mutation,
   query,
+  internalQuery,
+  internalMutation,
 } from "../_generated/server";
 
 import { v } from "convex/values";
@@ -18,7 +20,7 @@ const widgetType = v.union(
   v.literal("result"),
 );
 
-export const get = query({
+export const get = internalQuery({
   args: {
     id: v.id("caseWidgets"),
   },
@@ -42,7 +44,7 @@ export const get = query({
   },
 });
 
-export const list = query({
+export const list = internalQuery({
   args: {
     caseId: v.id("cases"),
   },
@@ -67,7 +69,7 @@ export const list = query({
   },
 });
 
-export const create = mutation({
+export const create = internalMutation({
   args: {
     caseId: v.id("cases"),
     type: widgetType,
@@ -96,7 +98,37 @@ export const create = mutation({
   },
 });
 
-export const update = mutation({
+export const createForAgent = internalMutation({
+  args: {
+    userId: v.string(),
+    caseId: v.id("cases"),
+    type: widgetType,
+    data: v.any(),
+  },
+
+  handler: async (ctx, args) => {
+    // const user = await getCurrentUser(ctx);
+
+    const caseData = await ctx.db.get(args.caseId);
+
+    if (!caseData || caseData.userId !== args.userId) {
+      throw new Error("Case not found.");
+    }
+
+    const now = Date.now();
+
+    return await ctx.db.insert("caseWidgets", {
+      userId: args.userId,
+      caseId: args.caseId,
+      type: args.type,
+      data: args.data,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const update = internalMutation({
   args: {
     id: v.id("caseWidgets"),
     data: v.optional(v.any()),
@@ -124,7 +156,7 @@ export const update = mutation({
   },
 });
 
-export const remove = mutation({
+export const remove = internalMutation({
   args: {
     id: v.id("caseWidgets"),
   },

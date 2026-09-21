@@ -354,7 +354,6 @@ ${args.prompt}
     );
     
     await thread.updateMetadata({
-      title: object.title.trim(),
       summary: object.summary.trim(),
     });
 
