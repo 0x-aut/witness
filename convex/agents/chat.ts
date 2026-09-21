@@ -45,9 +45,8 @@ export const sendMessage = mutation({
     let agentId;
 
     if (!threadId) {
-      const caseTitle =
-        prompt.length > 60
-          ? `${prompt.slice(0, 57)}...`
+      const caseTitle = prompt.length > 40
+          ? `${prompt.slice(0, 27)}...`
           : prompt;
 
       caseId = await ctx.db.insert("cases", {
@@ -84,15 +83,44 @@ export const sendMessage = mutation({
         updatedAt: now,
       });
 
-      const caseActivities = await ctx.db.insert("caseActivities", {
-        userId,
-        caseId,
-        agentId,
-        type: "created",
-        title: "Case created",
-        description: "Witness started working on this problem.",
-        createdAt: now,
-      });
+      const caseActivityId = await ctx.db.insert(
+        "caseActivities",
+        {
+          userId,
+          caseId,
+          agentId,
+          type: "created",
+          title: "Case created",
+          description:
+            "Witness started working on this problem.",
+          createdAt: now,
+        },
+      );
+
+      await ctx.scheduler.runAfter(
+        0,
+        internal.cases.summarize.summarizeInitial,
+        {
+          caseId,
+          activityId: caseActivityId,
+          threadId,
+          prompt,
+          displayUsername:
+            user.displayUsername ??
+            user.name ??
+            user._id,
+        },
+      );
+
+      // await ctx.db.insert("caseBlocks", {
+      //   userId,
+      //   caseId,
+      //   type: "narrative",
+      //   order: 1000,
+      //   text: prompt,
+      //   createdAt: now,
+      //   updatedAt: now,
+      // });
       
     } else {
       await authorizeThreadAccess(ctx, threadId);
@@ -152,6 +180,8 @@ export const sendMessage = mutation({
       {
         threadId,
         promptMessageId: messageId,
+        caseId,
+        agentId,
       },
     );
 
@@ -172,6 +202,8 @@ export const generateResponse = internalAction({
   args: {
     threadId: v.string(),
     promptMessageId: v.string(),
+    caseId: v.id("cases"),
+    agentId: v.id("agents"),
   },
 
   handler: async (ctx, args) => {
@@ -191,7 +223,36 @@ export const generateResponse = internalAction({
       },
     );
 
+    /*
+     * Important:
+     * Wait until the Agent generation has completely finished.
+     *
+     * The response is persisted as part of the Agent's streaming lifecycle.
+     */
     await result.consumeStream();
+
+    /*
+     * The generated response is now available from the result.
+     * We pass it directly to the Case summarizer rather than scheduling
+     * a summarizer before the Agent has finished.
+     */
+    const responseText = await result.text;
+
+    if (!responseText?.trim()) {
+      return;
+    }
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.cases.summarize.summarizeAgentResponse,
+      {
+        caseId: args.caseId,
+        agentId: args.agentId,
+        threadId: args.threadId,
+        promptMessageId: args.promptMessageId,
+        responseText: responseText.trim(),
+      },
+    );
   },
 });
 

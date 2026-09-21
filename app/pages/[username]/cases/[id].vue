@@ -275,12 +275,12 @@ function openConversation() {
             :stroke-width="1.8"
             class="transition-transform duration-200 group-hover:-translate-x-0.5"
           />
-
+      
           <span>
             Back to Cases
           </span>
         </button>
-
+      
         <!-- TITLE -->
         <header class="mb-12">
           <input
@@ -292,7 +292,7 @@ function openConversation() {
             @blur="saveTitle"
             @keydown.enter.prevent="saveTitle"
           />
-
+      
           <textarea
             v-model="summary"
             rows="2"
@@ -301,7 +301,7 @@ function openConversation() {
             placeholder="Add a short description of what this case is about..."
             @blur="saveSummary"
           />
-
+      
           <div
             v-if="savingTitle || savingSummary"
             class="mt-2 text-[11px] text-black/25"
@@ -309,98 +309,12 @@ function openConversation() {
             Saving…
           </div>
         </header>
-
-        <!-- CURRENT DOCUMENT BODY -->
-        <article class="max-w-[720px]">
-          <section>
-            <h2
-              class="mb-2.5 text-[18px] font-medium tracking-[-0.02em] text-black/88"
-            >
-              What happened
-            </h2>
-
-            <p
-              class="whitespace-pre-wrap text-[16px] leading-[1.85] tracking-[-0.005em] text-black/72"
-            >
-              {{ caseData.originalPrompt }}
-            </p>
-          </section>
-
-          <section class="mt-8">
-            <h2
-              class="mb-2.5 text-[18px] font-medium tracking-[-0.02em] text-black/88"
-            >
-              What Witness thinks
-            </h2>
-
-            <p
-              v-if="caseData.summary"
-              class="whitespace-pre-wrap text-[16px] leading-[1.85] tracking-[-0.005em] text-black/72"
-            >
-              {{ caseData.summary }}
-            </p>
-
-            <p
-              v-else
-              class="text-[16px] leading-[1.85] text-black/28"
-            >
-              Witness has not added an assessment yet.
-            </p>
-          </section>
-
-          <section class="mt-10">
-            <h2
-              class="mb-2.5 text-[18px] font-medium tracking-[-0.02em] text-black/88"
-            >
-              Activity
-            </h2>
-
-            <div
-              v-if="activities.length"
-              class="space-y-5"
-            >
-              <div
-                v-for="activity in activities"
-                :key="activity._id"
-                class="flex gap-x-3.5"
-              >
-                <div class="flex w-4 shrink-0 justify-center">
-                  <div
-                    class="mt-[9px] size-1.5 rounded-full bg-black/18"
-                  />
-                </div>
-
-                <div class="min-w-0">
-                  <p
-                    class="text-[14px] leading-6 text-black/68"
-                  >
-                    {{ activity.title }}
-                  </p>
-
-                  <p
-                    v-if="activity.description"
-                    class="mt-0.5 text-[14px] leading-6 text-black/40"
-                  >
-                    {{ activity.description }}
-                  </p>
-
-                  <p
-                    class="mt-1 text-[11px] text-black/25"
-                  >
-                    {{ formatActivityDate(activity.createdAt) }}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <p
-              v-else
-              class="text-sm leading-7 text-black/30"
-            >
-              Witness has not recorded any activity yet.
-            </p>
-          </section>
-        </article>
+      
+        <!-- DOCUMENT -->
+        <UIAppsCaseDocument
+          :case-id="caseId"
+          :fallback-text="caseData.originalPrompt"
+        />
       </main>
 
       <!-- RIGHT RAIL -->

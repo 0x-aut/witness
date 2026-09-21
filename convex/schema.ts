@@ -32,14 +32,73 @@ export default defineSchema({
   
     type: v.union(
       v.literal("created"),
+      v.literal("agent_action"),
+      v.literal("research"),
+      v.literal("email"),
+      v.literal("user_action"),
       v.literal("status_changed"),
+      v.literal("external_response"),
     ),
   
     title: v.string(),
     description: v.optional(v.string()),
+    metadata: v.optional(v.any()),
     createdAt: v.number(),
   })
     .index("by_case_id", ["caseId"])
+    .index("by_case_id_created_at", ["caseId", "createdAt"])
+    .index("by_user_id", ["userId"]),
+  
+  caseWidgets: defineTable({
+    userId: v.string(),
+    caseId: v.id("cases"),
+  
+    type: v.union(
+      v.literal("email"),
+      v.literal("research"),
+      v.literal("document"),
+      v.literal("action"),
+      v.literal("approval"),
+      v.literal("question"),
+      v.literal("link"),
+      v.literal("result"),
+    ),
+  
+    data: v.any(),
+  
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_case_id", ["caseId"])
+    .index("by_user_id", ["userId"]),
+  
+  caseBlocks: defineTable({
+    userId: v.string(),
+    caseId: v.id("cases"),
+  
+    type: v.union(
+      v.literal("narrative"),
+      v.literal("widget"),
+    ),
+  
+    order: v.number(),
+  
+    // Used when type === "narrative"
+    text: v.optional(v.string()),
+  
+    // Used when type === "widget"
+    widgetId: v.optional(v.id("caseWidgets")),
+  
+    // Activities that caused this narrative block to be generated.
+    sourceActivityIds: v.optional(
+      v.array(v.id("caseActivities")),
+    ),
+  
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_case_id", ["caseId"])
+    .index("by_case_id_order", ["caseId", "order"])
     .index("by_user_id", ["userId"]),
 
   agents: defineTable({

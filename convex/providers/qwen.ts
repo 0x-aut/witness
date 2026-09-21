@@ -17,6 +17,7 @@ export function getQwenModel() {
     name: "qwen",
     apiKey,
     baseURL,
+    supportsStructuredOutputs: true,
   });
 
   return qwen.chatModel("qwen3.8-max");
