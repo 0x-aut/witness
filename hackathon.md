@@ -338,6 +338,74 @@ A lightweight GSAP reveal was added to the Recent Chats section, while the inter
 
 ---
 
+## September 21, 2026 — Cases, research tools, and Agent interruptions
+
+The Witness Agent architecture was expanded from a basic persistent chat runtime into a Case-aware work system.
+
+Cases are now the durable representation of real-world problems being resolved. A conversation does not automatically become a Case; Witness can determine whether substantial ongoing work is required and can create or enter a Case when appropriate.
+
+The application Agent and Convex Agent thread are now separate but linked concepts. An Agent handles a task, while the Case persists the broader problem across future conversations and Agent runs.
+
+The Case system now includes:
+
+* Case creation and ownership
+* Existing Case lookup and entry
+* Case metadata updates
+* Case activities
+* Case-specific Agent association
+* Case status including active, waiting for the user, resolved, and archived
+* Structured Case document blocks
+* Case widgets for persistent artifacts
+* File/document widgets
+* Grouping of consecutive widgets into a single widget block
+
+A dedicated Case document experience was added so Case progress can be represented as a living document rather than only a chronological activity log.
+
+The Witness Agent gained Case-management tools for inspecting the current Case, finding related Cases, creating a Case, entering an existing Case, updating Case metadata, recording meaningful activity, and adding structured Case widgets.
+
+Web research support was added through Firecrawl-backed Agent tools for:
+
+* Website mapping
+* URL scraping
+* Web search
+
+The Agent instructions were updated around the Case model so Witness can distinguish lightweight conversations from problems that require persistent work. The Agent is instructed to reuse an existing Case when the current conversation belongs to it rather than creating duplicate Cases.
+
+The user-interruption architecture was implemented as a first-class application system using the userActions table.
+
+An Agent can now call askUser when it genuinely needs:
+
+* A document
+* An answer to a question
+* Approval before taking an action
+
+User actions are persisted against the Case and Agent, surfaced through the Inbox as notifications, and represented as Case widgets. Requesting an action changes the Agent to needs_user_action and the Case to waiting_user.
+
+The upload-document interruption is fully implemented. The user can select multiple documents, preview supported images and PDFs, remove selected files, upload them to Convex storage, persist their metadata in the Case, and resume the same Agent thread after submission.
+
+Question interruptions are now implemented with two response paths:
+
+* Select a concise option provided by Witness
+* Type a custom answer and send it back to the Agent
+
+The question interface adapts to the prompt and presents selectable answers in a responsive grid, while retaining a free-text answer path.
+
+Approval interruptions are implemented as a binary decision. Witness presents a concise approval request with explicit Allow and Deny controls. Allow resolves the action with an approval response, while Deny continues the Agent with an explicit denial response.
+
+All user-action responses resume the existing Convex Agent thread rather than creating a new conversation. The user's response is persisted as a new Agent message and a new Agent generation is scheduled from that message.
+
+Agent generation now carries the originating message order so stale generations cannot overwrite a newer resumed generation after an interruption. This prevents an earlier generation from incorrectly marking the Agent finished or errored after the user has already responded to an interruption.
+
+The Agent runtime now stops after a successful askUser tool call, allowing control to return to the user without treating the interruption as a finished Agent task.
+
+The chat composable was extended to manage pending user actions, waiting state, upload state, resumed generation state, and dismissal of a resolved interruption while Convex realtime state propagates.
+
+The interruption UI was integrated directly into the Agent chat dock so the normal composer is replaced by the appropriate action surface while Witness waits for the user.
+
+The latest interruption work establishes the foundation for approval-gated external actions. Composio will be used for broader external application/tool execution, while AgentMail will remain the dedicated path for sending emails from Witness's Agent identity. Composio can still be used for operations such as searching and reading connected mailboxes and other supported third-party actions, including workflows where a user chooses to act from their own connected account.
+
+---
+
 # Current Architecture Direction
 
 The current application architecture is:
@@ -482,10 +550,10 @@ When updating this file:
 * [ ] OpenAI integration working
 * [ ] Firecrawl integration working
 * [ ] AgentMail integration working
-* [ ] Case system implemented
-* [ ] Agent/task execution implemented
+* [x] Case system implemented
+* [x] Agent/task execution implemented
 * [ ] Composio-powered agent tools implemented
-* [ ] User-action flow implemented
+* [x] User-action flow implemented
 * [ ] Inbox backend implemented
 * [ ] Inbox content/detail view implemented
 * [ ] Inbox email integration implemented
@@ -494,6 +562,6 @@ When updating this file:
 * [ ] Vault implemented
 * [ ] Live deployment available
 * [ ] Public source repository
-* [ ] `hackathon.md` kept current
+* [x] `hackathon.md` kept current
 * [ ] Demo video completed
 * [ ] Final submission completed
