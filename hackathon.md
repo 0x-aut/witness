@@ -18,7 +18,7 @@ The application is being built with Nuxt 4 and TypeScript.
 
 ## Build Status
 
-**Stage:** Core development
+**Stage:** Final product integration and deployment preparation
 
 **Live app:** Not deployed
 
@@ -462,6 +462,165 @@ The chat UI now renders persisted uploaded files as file widgets attached to the
 The Case document experience was also refined so document and website widgets share the available Case content width and wrap naturally. Website widgets use fixed-size cards rather than consuming an entire flex row, allowing multiple document and link widgets to remain on the same row until the Case column is actually full.
 
 
+## September 22, 2026 — Final product surfaces, document intelligence, personalization, and homepage
+
+The core Witness product surfaces are now implemented in the pushed repository.
+
+### Persistent document intelligence
+
+Uploaded Case documents now have persistent parsing state and parsed content metadata in the root `files` table.
+
+A Firecrawl-backed Convex Node action was added for document parsing. It retrieves the private file from Convex Storage and sends it to Firecrawl's document parsing API.
+
+The document parser supports:
+
+* PDF
+* DOCX / DOC
+* ODT
+* RTF
+* XLSX / XLS
+* HTML
+* Other Firecrawl-supported uploaded document formats
+
+PDF parsing supports three modes:
+
+* `auto` — normal extraction with OCR fallback
+* `fast` — text-first extraction
+* `ocr` — forced OCR for scanned or image-only PDFs
+
+Parsed Markdown and summaries are persisted against the uploaded document so repeated Agent reads can reuse the parsed result rather than reprocessing the same document unnecessarily.
+
+The Agent now has a dedicated `parseDocument` tool. It can inspect Case file metadata first through `getCaseFiles`, then parse the required document when its actual contents are needed.
+
+The Agent instructions explicitly treat parsed document content as evidence and instruct Witness not to ask users to repeat information already present in an uploaded document.
+
+Large parsed documents are stored with bounded Markdown length and the Agent receives a bounded context response to avoid oversized Convex function payloads while retaining the persisted parsed result.
+
+### Persistent user Agent context
+
+A new root `userContext` table stores private, user-provided context that should persist across Cases and Agent conversations.
+
+The Account → Agent personalization page now provides a fixed-height, scrollable textarea where users can describe:
+
+* Personal circumstances
+* Communication preferences
+* Recurring information
+* Background the Agent should remember
+
+The page includes dirty-state tracking, reset behavior, save state, validation, character limits, and realtime-compatible Convex persistence.
+
+A dedicated `getUserContext` Agent tool exposes this information to Witness. The Agent is instructed to treat it as user-provided context rather than independently verified evidence.
+
+### Profile and account settings
+
+The Account → Profile page is now connected to Better Auth rather than being a static UI mock.
+
+Users can:
+
+* Edit their full name
+* Edit their username
+* Check username availability before changing it
+* Save profile changes
+* Automatically move to the new username-based route after a username change
+* Log out of the current account
+
+Email remains read-only in the profile editor.
+
+The profile identity treatment intentionally does not require profile-image uploads. Users are represented by a smooth-corner avatar containing the first letter of their name.
+
+The profile session loading path was made explicitly null-safe so the page does not attempt to read properties from an unavailable Better Auth session during initial client hydration.
+
+### Vault
+
+Vault is now implemented as the user's persistent document and resource space organized by Case.
+
+The Vault groups Case resources horizontally and supports:
+
+* Case-based organization
+* Persistent documents from Convex Storage
+* Document clusters
+* Individual document access/download
+* Website/research resources
+* Responsive horizontal resource layout
+* Realtime-backed Case resource state
+
+The Vault UI was iterated for document counts, multi-document clusters, resource spacing, hover expansion, and download behavior.
+
+### Inbox communication flow
+
+The Inbox is now connected to AgentMail communication state rather than being a static notification mock.
+
+Incoming AgentMail messages are persisted to `inboxItems` and associated with AgentMail threads and Cases where available.
+
+Witness can automatically prepare a reply draft for an incoming message. Draft generation uses the current Case context and the incoming email as input, while explicitly requiring the human user to review before sending.
+
+The Inbox now supports the human-in-the-loop communication flow:
+
+```text
+Incoming email
+  ↓
+Inbox notification
+  ↓
+Witness drafts reply
+  ↓
+Human reviews / edits
+  ↓
+Human explicitly sends
+  ↓
+AgentMail reply
+  ↓
+Case + Inbox state updated
+```
+
+The backend tracks draft state including drafting, ready, error, sent, and dismissed.
+
+No automatic external email send occurs merely because a draft was generated.
+
+### Final homepage
+
+The public homepage was added and pushed to the repository.
+
+The homepage positions Witness as a personal Agent for everyday real-world work while also showing its deeper value for complicated problems.
+
+The final design combines:
+
+* Large editorial typography
+* Warm, human-oriented messaging
+* Everyday task examples
+* Witness Agent interaction examples
+* Case and Inbox visualizations
+* GSAP-based entrance, reveal, stagger, and parallax motion
+* Product-oriented call-to-action flows
+* Responsive layouts
+* A distinct visual identity without relying on repetitive SaaS card grids
+
+The homepage is intended to support the final demo and make the product understandable to users who simply want someone to handle an annoying task for them.
+
+### Final core product state
+
+At this point the repository contains the major Witness systems required for the intended hackathon demonstration:
+
+```text
+User
+ ↓
+Agent
+ ↓
+Case
+ ↓
+Research / Documents / Connected tools
+ ↓
+User interruption when required
+ ↓
+Inbox / approval / response
+ ↓
+Agent resumes
+ ↓
+Case + Vault preserve the result
+```
+
+The remaining work is primarily deployment verification, end-to-end regression testing, and the final demo video/submission rather than introducing another major product subsystem.
+
+
 # Current Architecture Direction
 
 The current application architecture is:
@@ -605,20 +764,20 @@ When updating this file:
 * [x] Convex realtime Agent chat implemented
 * [ ] OpenAI integration working
 * [x] Firecrawl integration working
-* [ ] AgentMail integration working
+* [x] AgentMail integration working
 * [x] Case system implemented
 * [x] Agent/task execution implemented
 * [x] Composio-powered agent tools implemented
 * [x] User-action / interruption flow implemented
 * [x] Inbox backend and realtime stream implemented
-* [ ] Inbox content/detail view implemented
-* [ ] Inbox email reply flow implemented
+* [x] Inbox content/detail view implemented
+* [x] Inbox email reply flow implemented
 * [x] Settings integrations implemented
-* [ ] Personalization and jurisdiction UI completed
-* [ ] Case document widget implemented
-* [ ] Additional Case widgets polished
-* [ ] Vault file storage and UI implemented
-* [ ] Vault / Case file state fully realtime
+* [x] Personalization and jurisdiction UI completed
+* [x] Case document widget implemented
+* [x] Additional Case widgets polished
+* [x] Vault file storage and UI implemented
+* [x] Vault / Case file state fully realtime
 * [ ] End-to-end Agent → Inbox → user action → resume flow demonstrated
 * [ ] Live deployment available
 * [x] Public source repository
