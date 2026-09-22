@@ -16,11 +16,25 @@ import {
 import { authClient } from "@@/lib/auth-client";
 import { api } from "@@/convex/_generated/api";
 
+
+
 const session = ref<Awaited<ReturnType<typeof authClient.getSession>>["data"]>(null);
+
+const convex = useConvexClient();
 
 onMounted(async () => {
   const result = await authClient.getSession();
   session.value = result.data;
+
+  if (result.data?.user) {
+      try {
+        await convex.action(api.agentmails.actions.ensureInbox, {
+          username: result.data.user.username,
+        });
+      } catch (error) {
+        console.error("Failed to provision AgentMail inbox:", error);
+      }
+    }
 });
 
 const route = useRoute();
@@ -132,6 +146,9 @@ const navbar = computed(() => {
     label: "Witness",
   };
 });
+
+const { unreadCount, } = useInbox();
+
 </script>
 
 <template>
@@ -244,6 +261,12 @@ const navbar = computed(() => {
               >
                 {{ item.name }}
               </span>
+              <div
+                v-if="item.to == `/${username}/inbox` && unreadCount > 0"
+                class="w-fit rounded-full h-2.75 pr-1.5 pl-1.5 pt-1 pb-1 flex items-center justify-center bg-[#121212]"
+              >
+                <span class="unmodified-font-sans text-xs font-normal text-white">{{ unreadCount }}</span>
+              </div>
             </NuxtLink>
           </SmoothCorners>
           <UIElementsNavTooltip :text="item.tooltip" />

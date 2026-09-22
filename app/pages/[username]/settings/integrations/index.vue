@@ -21,7 +21,7 @@ const integrations = [
     logo: "/integrations/gmail.svg",
     description:
       "Find relevant emails, read correspondence, and work with your messages when needed.",
-    connected: false,
+    connected: true,
   },
   {
     name: "Google Drive",
@@ -84,18 +84,18 @@ const integrations = [
               class="group flex h-35 max-h-35 w-45 max-w-45 flex-col gap-y-2 bg-transparent justify-between p-2.25 text-left transition-colors duration-150 hover:bg-[#EBEBEB]"
             >
               <!-- TOP -->
-              <div class="flex min-w-0 items-start gap-x-2.5">
+              <div class="flex min-w-0 items-center gap-x-1.5">
                 <div
-                  class="flex h-9 w-9 shrink-0  items-center justify-center"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center"
                 >
                   <NuxtImg
                     :src="integration.logo"
-                    width="28"
-                    height="28"
+                    width="24"
+                    height="24"
                   />
                 </div>
             
-                <div class="min-w-0 pt-0.5">
+                <div class="min-w-0">
                   <h3
                     class="truncate text-[15px] font-normal leading-5 text-[#121212]"
                   >
@@ -104,7 +104,7 @@ const integrations = [
             
                   <span
                     v-if="integration.connected"
-                    class="mt-0.5 block text-[11px] leading-4 text-[#777777]"
+                    class="block text-[11px] leading-2 text-[#777777]"
                   >
                     Connected
                   </span>
@@ -114,7 +114,7 @@ const integrations = [
               <!-- BOTTOM -->
               <div>
                 <p
-                  class="line-clamp-2 text-xs leading-5 text-[#6B6B6B]"
+                  class="line-clamp-3 text-xs leading-5 text-[#6B6B6B]"
                 >
                   {{ integration.description }}
                 </p>

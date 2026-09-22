@@ -8,6 +8,8 @@
  * @module
  */
 
+import type * as agentmail from "../agentmail.js";
+import type * as agentmails_actions from "../agentmails/actions.js";
 import type * as agents_actions_composio from "../agents/actions/composio.js";
 import type * as agents_chat from "../agents/chat.js";
 import type * as agents_composio from "../agents/composio.js";
@@ -33,6 +35,8 @@ import type * as cases_update from "../cases/update.js";
 import type * as cases_widgets from "../cases/widgets.js";
 import type * as composioMutations from "../composioMutations.js";
 import type * as http from "../http.js";
+import type * as inboxMutations from "../inboxMutations.js";
+import type * as inboxQueries from "../inboxQueries.js";
 import type * as integrationMutations from "../integrationMutations.js";
 import type * as integrationQueries from "../integrationQueries.js";
 import type * as integrations from "../integrations.js";
@@ -45,6 +49,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  agentmail: typeof agentmail;
+  "agentmails/actions": typeof agentmails_actions;
   "agents/actions/composio": typeof agents_actions_composio;
   "agents/chat": typeof agents_chat;
   "agents/composio": typeof agents_composio;
@@ -70,6 +76,8 @@ declare const fullApi: ApiFromModules<{
   "cases/widgets": typeof cases_widgets;
   composioMutations: typeof composioMutations;
   http: typeof http;
+  inboxMutations: typeof inboxMutations;
+  inboxQueries: typeof inboxQueries;
   integrationMutations: typeof integrationMutations;
   integrationQueries: typeof integrationQueries;
   integrations: typeof integrations;
@@ -105,5 +113,6 @@ export declare const internal: FilterApi<
 export declare const components: {
   agent: import("@convex-dev/agent/_generated/component.js").ComponentApi<"agent">;
   betterAuth: import("../betterAuth/_generated/component.js").ComponentApi<"betterAuth">;
+  agentmail: import("@agentmail/convex/_generated/component.js").ComponentApi<"agentmail">;
   firecrawl: import("@firecrawl/firecrawl-convex/_generated/component.js").ComponentApi<"firecrawl">;
 };

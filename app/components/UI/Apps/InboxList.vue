@@ -1,171 +1,190 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from "vue";
-import { Check, Star } from "@lucide/vue";
-import { SmoothCorners } from "@lisse/vue";
+import type { Id } from "@@/convex/_generated/dataModel";
+import {
+  Bell,
+  CheckCheck,
+  ChevronDown,
+  Mail,
+  Star,
+} from "@lucide/vue";
 
-const showFilter = ref(false);
-const filterAnchorRef = ref<HTMLElement | null>(null);
-const filtersValue = ref<Record<string, string[]>>({});
+type InboxItem = {
+  _id: Id<"inboxItems">;
+  types: "email" | "alert" | "notification" | "agent_update" | "case_update";
+  title: string;
+  preview: string;
+  read: boolean;
+  starred: boolean;
+  sender?: string;
+  subject?: string;
+  updatedAt: number;
+};
 
-function handleFilterChange(value: Record<string, string[]>) {
-  filtersValue.value = value;
-}
+const props = defineProps<{
+  items: InboxItem[];
+  selectedId: Id<"inboxItems"> | null;
+  unreadCount: number;
+}>();
 
-function handleOutsideClick(event: MouseEvent) {
-  const target = event.target;
+const emit = defineEmits<{
+  select: [id: Id<"inboxItems">];
+  toggleStar: [id: Id<"inboxItems">];
+  markAllRead: [];
+}>();
 
-  if (!(target instanceof Node)) return;
-  if (filterAnchorRef.value?.contains(target)) return;
+const filter = ref<"all" | InboxItem["types"]>("all");
 
-  showFilter.value = false;
-}
+const filters = [
+  { value: "all", label: "All" },
+  { value: "email", label: "Emails" },
+  { value: "alert", label: "Alerts" },
+  { value: "agent_update", label: "Agents" },
+  { value: "case_update", label: "Cases" },
+] as const;
 
-onMounted(() => {
-  document.addEventListener("pointerdown", handleOutsideClick);
+const filteredItems = computed(() => {
+  if (filter.value === "all") return props.items;
+  return props.items.filter(item => item.types === filter.value);
 });
 
-onBeforeUnmount(() => {
-  document.removeEventListener("pointerdown", handleOutsideClick);
-});
+const iconFor = (type: InboxItem["types"]) => {
+  if (type === "email") return Mail;
+  return Bell;
+};
 
-const items = [
-  {
-    id: "inbox-001",
-    type: "email",
-    title: "Your claim has been denied",
-    preview:
-      "We’ve reviewed your claim and determined that the damage is not covered under your current policy.",
-    time: "8 min ago",
-    unread: false,
-    case: "Car insurance claim",
-  },
-];
+const formatDate = (timestamp: number) => {
+  const date = new Date(timestamp);
+  const now = new Date();
 
-const selectedItems = ref<string[]>([]);
-
-function toggleSelected(id: string, event: MouseEvent) {
-  event.stopPropagation();
-
-  const index = selectedItems.value.indexOf(id);
-
-  if (index === -1) {
-    selectedItems.value.push(id);
-  } else {
-    selectedItems.value.splice(index, 1);
+  if (date.toDateString() === now.toDateString()) {
+    return date.toLocaleTimeString([], {
+      hour: "numeric",
+      minute: "2-digit",
+    });
   }
-}
 
-function isSelected(id: string) {
-  return selectedItems.value.includes(id);
-}
-
-function openNotification(item: (typeof items)[number]) {
-  console.log("Open notification:", item.id);
-}
-
-function toggleStar(item: (typeof items)[number], event: MouseEvent) {
-  event.stopPropagation();
-  console.log("Toggle star:", item.id);
-}
+  return date.toLocaleDateString([], {
+    month: "short",
+    day: "numeric",
+  });
+};
 </script>
 
 <template>
-  <div class="relative flex h-full min-h-0 flex-col">
-    <nav
-      class="flex shrink-0 items-center justify-between border-b border-[#E3E3E3] px-1.5 py-1.5"
-    >
-      <span
-        class="unmodified-font-sans text-sm font-medium text-[#121212]"
-      >
-        Inbox
-      </span>
+  <aside class="flex h-full w-90 shrink-0 flex-col border-r border-black/6">
+    <header class="flex h-16 shrink-0 items-center justify-between border-b border-black/6 px-5">
+      <div class="flex items-center gap-2">
+        <h1 class="text-[15px] font-medium">Inbox</h1>
 
-      <!-- Filter can be restored here later -->
-    </nav>
-
-    <div class="noscrollbar min-h-0 flex-1 overflow-y-auto">
-      <div
-        v-for="item in items"
-        :key="item.id"
-        role="button"
-        tabindex="0"
-        class="group flex w-full items-center gap-x-3 border-b border-[#EEEEEE] px-3 py-2.5 text-left transition-colors duration-150 hover:bg-[#F7F7F7]"
-        @click="openNotification(item)"
-        @keydown.enter="openNotification(item)"
-      >
-        <SmoothCorners
-          as-child
-          :corners="{ radius: 5, smoothing: 0.6 }"
-          :outer-border="{
-            width: 1,
-            color: '#E3E3E3',
-            opacity: 1,
-          }"
+        <span
+          v-if="unreadCount"
+          class="flex min-w-5 items-center justify-center rounded-full bg-black px-1.5 py-0.5 text-[10px] font-medium text-white"
         >
-          <button
-            type="button"
-            :aria-label="
-              isSelected(item.id)
-                ? 'Deselect notification'
-                : 'Select notification'
-            "
-            :aria-pressed="isSelected(item.id)"
-            :class="[
-              'flex h-4.5 w-4.5 shrink-0 items-center justify-center transition-colors duration-150',
-              isSelected(item.id)
-                ? 'bg-[#0A84FF] text-white'
-                : 'bg-transparent text-transparent hover:border-[#8F8F8F]',
-            ]"
-            @click="toggleSelected(item.id, $event)"
-          >
-            <Check
-              v-if="isSelected(item.id)"
-              :size="12"
-              :stroke-width="2.5"
-            />
-          </button>
-        </SmoothCorners>
+          {{ unreadCount }}
+        </span>
+      </div>
 
-        <!-- Notification content -->
+      <button
+        v-if="unreadCount"
+        type="button"
+        class="flex items-center gap-1.5 text-[12px] text-black/45 transition hover:text-black"
+        @click="emit('markAllRead')"
+      >
+        <CheckCheck :size="14" :stroke-width="1.7" />
+        Mark read
+      </button>
+    </header>
+
+    <div class="flex items-center gap-1 border-b border-black/6 px-3 py-2">
+      <button
+        v-for="entry in filters"
+        :key="entry.value"
+        type="button"
+        class="rounded-full px-3 py-1.5 text-[11px] transition"
+        :class="filter === entry.value ? 'bg-black text-white' : 'text-black/45 hover:bg-black/5 hover:text-black'"
+        @click="filter = entry.value"
+      >
+        {{ entry.label }}
+      </button>
+
+      <ChevronDown class="ml-auto text-black/25" :size="14" :stroke-width="1.8" />
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto">
+      <button
+        v-for="item in filteredItems"
+        :key="item._id"
+        type="button"
+        class="group flex w-full gap-3 border-b border-black/5 px-4 py-4 text-left transition"
+        :class="[
+          selectedId === item._id ? 'bg-black/[0.035]' : 'hover:bg-black/[0.025]',
+          !item.read ? 'bg-black/[0.018]' : '',
+        ]"
+        @click="emit('select', item._id)"
+      >
+        <div
+          class="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+          :class="item.read ? 'bg-black/[0.045] text-black/35' : 'bg-black text-white'"
+        >
+          <component
+            :is="iconFor(item.types)"
+            :size="15"
+            :stroke-width="1.8"
+          />
+        </div>
+
         <div class="min-w-0 flex-1">
-          <p
-            :class="[
-              'min-w-0 unmodified-font-sans truncate text-[15px] leading-5',
-              item.unread
-                ? 'font-medium text-[#121212]'
-                : 'font-normal text-[#3F3F3F]',
-            ]"
-          >
-            {{ item.title }}
-          </p>
-        
-          <p
-            class="mt-0.5 truncate text-[13px] unmodified-font-sans font-light leading-4.5 text-[#777777]"
-          >
+          <div class="flex items-start gap-2">
+            <span
+              class="min-w-0 flex-1 truncate text-[12px]"
+              :class="item.read ? 'font-normal text-black/70' : 'font-medium text-black'"
+            >
+              {{ item.title }}
+            </span>
+
+            <span class="shrink-0 text-[10px] text-black/30">
+              {{ formatDate(item.updatedAt) }}
+            </span>
+          </div>
+
+          <p class="mt-1 truncate text-[11px] leading-4 text-black/40">
             {{ item.preview }}
           </p>
         </div>
 
-        <!-- Star -->
-        <SmoothCorners
-          as-child
-          :corners="{ radius: 999, smoothing: 0.6 }"
+        <button
+          type="button"
+          class="mt-0.5 shrink-0 opacity-0 transition group-hover:opacity-100"
+          :class="item.starred ? 'opacity-100' : ''"
+          @click.stop="emit('toggleStar', item._id)"
         >
-          <span class="shrink-0">
-            <button
-              type="button"
-              aria-label="Star notification"
-              class="flex h-7 w-7 items-center justify-center text-[#A0A0A0] transition-colors duration-150 hover:bg-[#F0F0F0] hover:text-[#121212]"
-              @click="toggleStar(item, $event)"
-            >
-              <Star
-                :size="15"
-                :stroke-width="1.7"
-              />
-            </button>
-          </span>
-        </SmoothCorners>
+          <Star
+            :size="14"
+            :stroke-width="1.7"
+            :fill="item.starred ? 'currentColor' : 'none'"
+            :class="item.starred ? 'text-black' : 'text-black/30'"
+          />
+        </button>
+      </button>
+
+      <div
+        v-if="!filteredItems.length"
+        class="flex h-full min-h-70 items-center justify-center px-8 text-center"
+      >
+        <div>
+          <div class="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-black/[0.04]">
+            <Bell :size="17" :stroke-width="1.7" class="text-black/30" />
+          </div>
+
+          <p class="text-[13px] font-medium text-black/65">
+            No notifications
+          </p>
+
+          <p class="mt-1 text-[11px] leading-4 text-black/35">
+            Important updates and requests from Witness will appear here.
+          </p>
+        </div>
       </div>
     </div>
-  </div>
+  </aside>
 </template>

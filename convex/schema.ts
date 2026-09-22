@@ -154,6 +154,7 @@ export default defineSchema({
     starred: v.boolean(),
 
     source: v.optional(v.string()),
+    threadId: v.optional(v.string()),
     externalId: v.optional(v.string()),
 
     sender: v.optional(v.string()),
@@ -162,6 +163,28 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_user_id_read", ["userId", "read"])
+    .index("by_case_id", ["caseId"])
+    .index("by_user_id_external_id", ["userId", "externalId"]),
+
+  agentMailInboxes: defineTable({
+    userId: v.string(),
+    inboxId: v.string(),
+    email: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_inbox_id", ["inboxId"]),
+  
+  agentMailThreads: defineTable({
+    userId: v.string(),
+    inboxId: v.string(),
+    threadId: v.string(),
+    caseId: v.optional(v.id("cases")),
+    updatedAt: v.number(),
+  })
+    .index("by_user_id", ["userId"])
+    .index("by_thread_id", ["threadId"])
     .index("by_case_id", ["caseId"]),
 
   userActions: defineTable({

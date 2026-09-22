@@ -2,6 +2,7 @@ import { defineApp } from "convex/server";
 import agent from "@convex-dev/agent/convex.config";
 import betterAuth from "./betterAuth/convex.config";
 import firecrawl from "@firecrawl/firecrawl-convex/convex.config";
+import agentmail from "@agentmail/convex/convex.config";
 import { v } from "convex/values";
 
 
@@ -9,11 +10,14 @@ const app = defineApp({
   env: {
     FIRECRAWL_API_KEY: v.string(),
     FIRECRAWL_WEBHOOK_SECRET: v.optional(v.string()),
+    AGENTMAIL_API_KEY: v.string(),
+    AGENTMAIL_WEBHOOK_SECRET: v.string(),
   },
 });
 
 app.use(agent);
 app.use(betterAuth);
+app.use(agentmail);
 
 app.use(firecrawl, {
   httpPrefix: "/firecrawl/",
