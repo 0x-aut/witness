@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { ChevronRight, FileText, X } from "@lucide/vue";
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import {
+  ChevronRight,
+  FileText,
+} from "@lucide/vue";
 import { SmoothCorners } from "@lisse/vue";
 
 type DocumentItem = {
@@ -34,36 +37,185 @@ const props = defineProps<{
   username: string;
 }>();
 
-const selectedDocument = ref<DocumentItem | null>(null);
+const scrollRef = ref<HTMLElement | null>(null);
+const resourceRefs = ref<HTMLElement[]>([]);
+const observedResources = new WeakSet<HTMLElement>();
+
+const gsap = useGSAP();
+
+const documentClusters = computed(() => {
+  const clusters: DocumentItem[][] = [];
+
+  for (
+    let index = 0;
+    index < props.documents.length;
+    index += 4
+  ) {
+    clusters.push(
+      props.documents.slice(index, index + 4),
+    );
+  }
+
+  return clusters;
+});
 
 const resources = computed(() => [
-  ...props.documents.map(document => ({
-    kind: "document" as const,
-    id: document.id,
-    document,
-  })),
-  ...props.websites.map(website => ({
-    kind: "website" as const,
-    id: website.id,
-    website,
-  })),
+  ...documentClusters.value.map(
+    (documents, index) => ({
+      kind: "documents" as const,
+      id: `documents-${index}`,
+      documents,
+    }),
+  ),
+
+  ...props.websites
+    .filter(website => !!website.url)
+    .map(website => ({
+      kind: "website" as const,
+      id: website.id,
+      website,
+    })),
 ]);
 
-function isImage(document: DocumentItem) {
-  return document.mimeType.startsWith("image/");
+function setResourceRef(
+  element: Element | ComponentPublicInstance | null,
+) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+
+  if (!resourceRefs.value.includes(element)) {
+    resourceRefs.value.push(element);
+  }
 }
 
-function isPdf(document: DocumentItem) {
-  return document.mimeType === "application/pdf";
+function animateResource(
+  element: HTMLElement,
+  index: number,
+) {
+  if (observedResources.has(element)) {
+    return;
+  }
+
+  const observer = new IntersectionObserver(
+    entries => {
+      const entry = entries[0];
+
+      if (!entry?.isIntersecting) {
+        return;
+      }
+
+      gsap.to(element, {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.5,
+        delay: index * 0.045,
+        ease: "power3.out",
+      });
+
+      observer.disconnect();
+      observedResources.add(element);
+    },
+    {
+      root: scrollRef.value,
+      threshold: 0.15,
+    },
+  );
+
+  observer.observe(element);
 }
 
-function openDocument(document: DocumentItem) {
-  selectedDocument.value = document;
+function smoothWheel(event: WheelEvent) {
+  const element = scrollRef.value;
+
+  if (!element) {
+    return;
+  }
+
+  const hasHorizontalOverflow =
+    element.scrollWidth > element.clientWidth;
+
+  if (!hasHorizontalOverflow) {
+    return;
+  }
+
+  const delta =
+    Math.abs(event.deltaX) >
+    Math.abs(event.deltaY)
+      ? event.deltaX
+      : event.deltaY;
+
+  if (!delta) {
+    return;
+  }
+
+  event.preventDefault();
+
+  gsap.to(element, {
+    scrollLeft:
+      element.scrollLeft + delta * 1.15,
+    duration: 0.42,
+    ease: "power3.out",
+    overwrite: "auto",
+  });
 }
 
-function closeDocument() {
-  selectedDocument.value = null;
-}
+let revealObserver: IntersectionObserver | null = null;
+
+onMounted(async () => {
+  await nextTick();
+
+  const elements =
+    resourceRefs.value;
+
+  elements.forEach(
+    (element, index) => {
+      gsap.set(element, {
+        opacity: 0,
+        y: 10,
+        scale: 0.98,
+      });
+
+      animateResource(
+        element,
+        index,
+      );
+    },
+  );
+
+  revealObserver =
+    new IntersectionObserver(
+      entries => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) {
+            continue;
+          }
+
+          const index = elements.indexOf(
+            entry.target as HTMLElement,
+          );
+
+          animateResource(
+            entry.target as HTMLElement,
+            Math.max(index, 0),
+          );
+        }
+      },
+      {
+        threshold: 0.1,
+      },
+    );
+
+  for (const element of elements) {
+    revealObserver.observe(element);
+  }
+});
+
+onUnmounted(() => {
+  revealObserver?.disconnect();
+  revealObserver = null;
+});
 </script>
 
 <template>
@@ -90,201 +242,60 @@ function closeDocument() {
       <span
         class="hidden shrink-0 text-[11px] text-black/25 sm:block"
       >
-        {{ resources.length }}
-        {{ resources.length === 1 ? "item" : "items" }}
+        {{
+          props.documents.length +
+          props.websites.length
+        }}
+        {{
+          props.documents.length +
+          props.websites.length === 1
+            ? "item"
+            : "items"
+        }}
       </span>
     </NuxtLink>
 
-    <!-- RESOURCE ROW -->
+    <!-- ONE ROW PER CASE -->
     <div
       v-if="resources.length"
-      class="mt-2 flex min-w-0 gap-1 overflow-x-auto pb-2 pt-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      ref="scrollRef"
+      class="vault-scroll mt-2 flex min-w-0 flex-nowrap items-start gap-1 overflow-x-auto overflow-y-hidden pb-3 pt-1"
+      @wheel="smoothWheel"
     >
-      <template
-        v-for="resource in resources"
+      <div
+        v-for="(resource, index) in resources"
         :key="resource.id"
+        :ref="setResourceRef"
+        class="shrink-0"
       >
-        <!-- DOCUMENT -->
-        <button
-          v-if="resource.kind === 'document'"
-          type="button"
-          class="group/document relative h-[72px] w-[72px] shrink-0 text-left"
-          :aria-label="`Open ${resource.document.filename}`"
-          @click="openDocument(resource.document)"
-        >
-          <SmoothCorners
-            as-child
-            :corners="{
-              radius: 10,
-              smoothing: 0.65,
-            }"
-            :middle-border="{
-              width: 1,
-              color: '#E3E3E3',
-              opacity: 1,
-            }"
-          >
-            <div
-              class="relative h-full w-full overflow-hidden bg-white shadow-[0_4px_12px_rgba(0,0,0,0.07)] transition-transform duration-200 group-hover/document:-translate-y-0.5"
-            >
-              <img
-                v-if="
-                  resource.document.url &&
-                  isImage(resource.document)
-                "
-                :src="resource.document.url"
-                :alt="resource.document.filename"
-                draggable="false"
-                class="h-full w-full object-cover"
-              />
+        <UIElementsVaultDocumentCluster
+          v-if="resource.kind === 'documents'"
+          :documents="resource.documents"
+        />
 
-              <iframe
-                v-else-if="
-                  resource.document.url &&
-                  isPdf(resource.document)
-                "
-                :src="`${resource.document.url}#page=1&toolbar=0&navpanes=0&scrollbar=0`"
-                :title="resource.document.filename"
-                class="pointer-events-none h-full w-full border-0"
-              />
-
-              <div
-                v-else
-                class="flex h-full w-full items-center justify-center bg-[#F7F7F7]"
-              >
-                <FileText
-                  :size="28"
-                  :stroke-width="1.6"
-                  class="text-[#6B6B6B]"
-                />
-              </div>
-
-              <div
-                class="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-black/70 px-2 py-1.5 transition-transform duration-200 group-hover/document:translate-y-0"
-              >
-                <p
-                  class="truncate text-[8px] font-medium text-white"
-                >
-                  {{ resource.document.filename }}
-                </p>
-              </div>
-            </div>
-          </SmoothCorners>
-        </button>
-
-        <!-- WEBSITE -->
         <UIElementsCaseWebsiteWidget
           v-else-if="resource.website.url"
           :data="resource.website"
         />
-      </template>
+      </div>
     </div>
 
-    <!-- EMPTY CASE -->
     <div
       v-else
       class="mt-2 flex h-[72px] items-center rounded-[10px] border border-dashed border-black/[0.08] px-3 text-xs text-black/25"
     >
       No documents or saved websites yet.
     </div>
-
-    <!-- DOCUMENT PREVIEW -->
-    <Teleport to="body">
-      <div
-        v-if="selectedDocument"
-        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/35 p-6 backdrop-blur-[2px]"
-        @click.self="closeDocument"
-      >
-        <SmoothCorners
-          as-child
-          :corners="{
-            radius: 18,
-            smoothing: 0.7,
-          }"
-          :middle-border="{
-            width: 1,
-            color: '#E3E3E3',
-            opacity: 1,
-          }"
-        >
-          <div
-            class="relative flex h-[min(86vh,760px)] w-[min(86vw,900px)] flex-col overflow-hidden bg-white shadow-[0_24px_80px_rgba(0,0,0,0.16)]"
-          >
-            <div
-              class="flex shrink-0 items-center justify-between border-b border-[#EEEEEE] px-4 py-3"
-            >
-              <div class="min-w-0 pr-4">
-                <p
-                  class="truncate text-sm font-medium text-[#151515]"
-                >
-                  {{ selectedDocument.filename }}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                aria-label="Close preview"
-                class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-black/35 transition-colors hover:bg-black/[0.04] hover:text-black"
-                @click="closeDocument"
-              >
-                <X
-                  :size="15"
-                  :stroke-width="1.8"
-                />
-              </button>
-            </div>
-
-            <div class="min-h-0 flex-1 bg-[#F5F5F5]">
-              <img
-                v-if="
-                  selectedDocument.url &&
-                  isImage(selectedDocument)
-                "
-                :src="selectedDocument.url"
-                :alt="selectedDocument.filename"
-                class="h-full w-full object-contain"
-              />
-
-              <iframe
-                v-else-if="
-                  selectedDocument.url &&
-                  isPdf(selectedDocument)
-                "
-                :src="`${selectedDocument.url}#toolbar=1&navpanes=0`"
-                :title="selectedDocument.filename"
-                class="h-full w-full border-0"
-              />
-
-              <div
-                v-else
-                class="flex h-full flex-col items-center justify-center text-center"
-              >
-                <FileText
-                  :size="42"
-                  :stroke-width="1.4"
-                  class="text-black/30"
-                />
-
-                <p
-                  class="mt-3 max-w-sm text-sm text-black/45"
-                >
-                  Preview isn't available for this file type.
-                </p>
-
-                <a
-                  v-if="selectedDocument.url"
-                  :href="selectedDocument.url"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="mt-4 text-xs font-medium text-black/55 underline underline-offset-4 transition-colors hover:text-black"
-                >
-                  Open file
-                </a>
-              </div>
-            </div>
-          </div>
-        </SmoothCorners>
-      </div>
-    </Teleport>
   </section>
 </template>
+
+<style scoped>
+.vault-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.vault-scroll::-webkit-scrollbar {
+  display: none;
+}
+</style>

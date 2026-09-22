@@ -132,7 +132,7 @@ const navbar = computed(() => {
 
   if (path.startsWith(`/${username}/vault`)) {
     return {
-      label: "Vault",
+      // label: "Vault",
     };
   }
 

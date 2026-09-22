@@ -28,12 +28,16 @@ const cases = computed(
 );
 
 const isLoading = computed(
-  () => vaultQuery.data.value === undefined,
+  () =>
+    vaultQuery.data.value ===
+    undefined,
 );
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-[1180px] px-8 pb-24 pt-9">
+  <div
+    class="mx-auto w-full max-w-[1180px] px-8 pb-24 pt-9"
+  >
     <!-- HEADER -->
     <header class="mb-10">
       <div class="flex items-center gap-x-2">
@@ -116,22 +120,15 @@ const isLoading = computed(
     </div>
 
     <!-- CASES -->
-    <div
-      v-else
-      class="divide-y divide-[#EEEEEE]"
-    >
-      <div
+    <div v-else class="space-y-8">
+      <UIAppsVaultCaseRow
         v-for="item in cases"
         :key="item.caseData._id"
-        class="py-7 first:pt-0 last:pb-0"
-      >
-        <UIAppsVaultCaseRow
-          :case-data="item.caseData"
-          :documents="item.documents"
-          :websites="item.websites"
-          :username="username"
-        />
-      </div>
+        :case-data="item.caseData"
+        :documents="item.documents"
+        :websites="item.websites"
+        :username="username"
+      />
     </div>
   </div>
 </template>
