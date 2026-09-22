@@ -20,5 +20,5 @@ export function getQwenModel() {
     supportsStructuredOutputs: true,
   });
 
-  return qwen.chatModel("qwen3.8-2.4t-a95b");
+  return qwen.chatModel("qwen3.8-max-0902");
 }

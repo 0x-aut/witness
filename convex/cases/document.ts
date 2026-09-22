@@ -1,7 +1,6 @@
 import { query } from "../_generated/server";
-
 import { v } from "convex/values";
-
+import type { Id } from "../_generated/dataModel";
 import { getCurrentUser } from "../agents/threads";
 
 export const get = query({
@@ -28,34 +27,54 @@ export const get = query({
       .collect();
 
     const documentBlocks = [];
-    
+
     for (const block of blocks) {
       if (block.type === "narrative") {
         documentBlocks.push({
           ...block,
           widgets: [],
         });
-    
+
         continue;
       }
-    
+
       const widgets = [];
-    
+
       for (const widgetId of block.widgetIds ?? []) {
         const widget = await ctx.db.get(widgetId);
-    
-        if (
-          widget &&
-          widget.userId === user._id
-        ) {
-          widgets.push(widget);
+
+        if (!widget || widget.userId !== user._id) {
+          continue;
         }
+
+        if (widget.type === "document") {
+          const data = widget.data as Record<string, unknown>;
+          const storageId = data.storageId;
+
+          if (typeof storageId === "string") {
+            const url = await ctx.storage.getUrl(
+              storageId as Id<"_storage">,
+            );
+
+            widgets.push({
+              ...widget,
+              data: {
+                ...data,
+                url,
+              },
+            });
+
+            continue;
+          }
+        }
+
+        widgets.push(widget);
       }
-    
+
       if (!widgets.length) {
         continue;
       }
-    
+
       documentBlocks.push({
         ...block,
         widgets,

@@ -48,6 +48,8 @@ const { mutate: updateCase } = useConvexMutation(
  */
 const queryData = computed(() => caseQuery.data.value as any);
 
+console.log(queryData)
+
 const caseData = computed(() => {
   if (!queryData.value) return null;
 

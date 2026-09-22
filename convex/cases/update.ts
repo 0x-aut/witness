@@ -2,7 +2,7 @@ import { mutation, internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 import { getCurrentUser } from "../agents/threads";
 
-export const update = internalMutation({
+export const update = mutation({
   args: {
     id: v.id("cases"),
     title: v.optional(v.string()),

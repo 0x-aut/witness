@@ -5,6 +5,16 @@ export interface AgentChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  files?: AgentChatFile[];
+}
+
+export interface AgentChatFile {
+  id: string;
+  storageId: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  url: string | null;
 }
 
 export interface SendAgentMessageOptions {
@@ -20,7 +30,8 @@ interface StreamState {
   content: string;
 }
 
-interface RenderedMessage extends AgentChatMessage {
+interface RenderedMessage
+  extends AgentChatMessage {
   order: number;
   stepOrder: number;
 }
@@ -151,7 +162,7 @@ export function useAgentChat(
 
     paginationOpts: {
       cursor: null,
-      numItems: 50,
+      numItems: 200,
     },
 
     streamArgs: {
@@ -583,6 +594,10 @@ export function useAgentChat(
               : "assistant",
           content:
             message.text ?? "",
+          files:
+            Array.isArray(message.files)
+              ? message.files
+              : [],
           order,
           stepOrder,
         };

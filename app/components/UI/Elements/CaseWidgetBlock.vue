@@ -1,103 +1,62 @@
 <script setup lang="ts">
-import {
-  FileText,
-  Globe,
-  Mail,
-  Link,
-  CheckCircle2,
-  CircleHelp,
-  ClipboardCheck,
-  ExternalLink,
-} from "@lucide/vue";
+import { computed } from "vue";
 
-defineProps<{
-  widget: {
+const props = defineProps<{
+  widgets: Array<{
     _id: string;
-    type:
-      | "email"
-      | "research"
-      | "document"
-      | "action"
-      | "approval"
-      | "question"
-      | "link"
-      | "result";
-    data: unknown;
-  };
+    type: string;
+    data: Record<string, any>;
+  }>;
 }>();
 
-const widgetMeta = {
-  email: {
-    label: "Email",
-    icon: Mail,
-  },
-  research: {
-    label: "Research",
-    icon: Globe,
-  },
-  document: {
-    label: "Document",
-    icon: FileText,
-  },
-  action: {
-    label: "Action",
-    icon: ClipboardCheck,
-  },
-  approval: {
-    label: "Approval",
-    icon: CheckCircle2,
-  },
-  question: {
-    label: "Question",
-    icon: CircleHelp,
-  },
-  link: {
-    label: "Link",
-    icon: Link,
-  },
-  result: {
-    label: "Result",
-    icon: CheckCircle2,
-  },
-} as const;
+const documentWidgets = computed(() =>
+  props.widgets.filter(
+    widget => widget.type === "document",
+  ),
+);
+
+const otherWidgets = computed(() =>
+  props.widgets.filter(
+    widget => widget.type !== "document",
+  ),
+);
 </script>
 
 <template>
   <div
-    class="my-2 rounded-[14px] border border-black/[0.06] bg-black/[0.025] p-4"
+    v-if="widgets.length"
+    class="flex flex-wrap items-start gap-[5px]"
   >
-    <div class="flex items-center gap-x-2">
-      <div
-        class="flex size-7 items-center justify-center rounded-[9px] bg-white"
-      >
-        <component
-          :is="widgetMeta[widget.type].icon"
-          :size="14"
-          :stroke-width="1.7"
-          class="text-black/45"
-        />
-      </div>
+    <UIElementsCaseDocumentWidget
+      v-if="documentWidgets.length"
+      :documents="
+        documentWidgets.map(
+          widget => ({
+            ...widget.data,
+          }),
+        )
+      "
+    />
 
-      <div>
-        <p class="text-sm font-medium text-black/70">
-          {{ widgetMeta[widget.type].label }}
-        </p>
-
-        <p class="text-[11px] text-black/30">
-          Widget
-        </p>
-      </div>
-    </div>
-
-    <div class="mt-3 flex items-center gap-x-1.5 text-xs text-black/30">
-      <ExternalLink
-        :size="12"
-        :stroke-width="1.7"
+    <template
+      v-for="widget in otherWidgets"
+      :key="widget._id"
+    >
+      <UIElementsCaseWebsiteWidget
+        v-if="widget.type === 'link'"
+        :data="widget.data"
       />
 
-      <span>
-        Widget content will appear here.
-      </span>
-    </div>
+      <UIElementsCaseResearchWidget
+        v-else-if="widget.type === 'research'"
+        :data="widget.data"
+      />
+
+      <UIElementsCaseGenericWidget
+        v-else
+        :type="widget.type"
+        :data="widget.data"
+      />
+    </template>
   </div>
 </template>

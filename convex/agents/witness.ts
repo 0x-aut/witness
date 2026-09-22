@@ -25,6 +25,15 @@ import {
 } from "./tools/work";
 
 import {
+  listAgentEmails,
+  searchAgentEmails,
+  getAgentEmail,
+  sendEmail,
+  replyToEmail,
+  getAgentIdentity,
+} from "./tools/agentmail";
+
+import {
   searchComposioTools,
   executeComposioTool,
 } from "./tools/composio";
@@ -129,6 +138,13 @@ export const witnessAgent = new Agent(components.agent, {
     // Connected applications
     searchComposioTools,
     executeComposioTool,
+
+    // AgentMail
+    listAgentEmails,
+    searchAgentEmails,
+    getAgentEmail,
+    sendEmail,
+    replyToEmail,
   },
 
   stopWhen: [

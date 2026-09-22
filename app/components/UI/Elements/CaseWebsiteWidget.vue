@@ -5,6 +5,7 @@ import {
   onUnmounted,
   ref,
 } from "vue";
+import { ExternalLink } from "@lucide/vue";
 import { SmoothCorners } from "@lisse/vue";
 
 type WebsiteWidgetData = {
@@ -52,19 +53,6 @@ const title = computed(() => {
     : value;
 });
 
-const description = computed(() => {
-  const value =
-    props.data.description?.trim();
-
-  if (!value) {
-    return "";
-  }
-
-  return value.length > 100
-    ? `${value.slice(0, 97)}...`
-    : value;
-});
-
 const imageStyle = computed(() => {
   if (!props.data.image) {
     return {};
@@ -86,7 +74,9 @@ function leave() {
 }
 
 function animateIn() {
-  if (!cardRef.value) return;
+  if (!cardRef.value) {
+    return;
+  }
 
   gsap.fromTo(
     cardRef.value,
@@ -106,7 +96,9 @@ function animateIn() {
 }
 
 onMounted(() => {
-  if (!cardRef.value) return;
+  if (!cardRef.value) {
+    return;
+  }
 
   hoverTimeline = gsap.timeline({
     paused: true,
@@ -183,7 +175,7 @@ onUnmounted(() => {
   <SmoothCorners
     as-child
     :corners="{
-      radius: 18,
+      radius: 10,
       smoothing: 0.7,
     }"
     :middle-border="{
@@ -194,9 +186,8 @@ onUnmounted(() => {
   >
     <div
       ref="cardRef"
-      class="group relative aspect-[1.7/1] w-full overflow-hidden bg-[#E9E9E9]"
+      class="group relative h-[72px] w-[72px] shrink-0 rotate-[-3deg] overflow-hidden bg-[#E9E9E9]"
     >
-      <!-- IMAGE -->
       <div
         v-if="data.image"
         ref="imageRef"
@@ -204,121 +195,67 @@ onUnmounted(() => {
         :style="imageStyle"
       />
 
-      <!-- IMAGE FALLBACK -->
       <div
         v-else
-        class="absolute inset-0 flex items-center justify-center bg-[#F5F5F5] px-5"
+        class="absolute inset-0 flex items-center justify-center bg-[#F5F5F5]"
       >
-        <div class="flex max-w-[88%] items-center gap-3">
+        <div class="flex flex-col items-center justify-center px-2 text-center">
           <SmoothCorners
+            v-if="data.favicon"
             as-child
             :corners="{
-              radius: 10,
+              radius: 8,
               smoothing: 0.7,
             }"
           >
-            <div
-              class="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden bg-white shadow-[0_1px_3px_rgba(0,0,0,0.08)]"
-            >
+            <div class="flex h-8 w-8 items-center justify-center bg-white">
               <img
-                v-if="data.favicon"
                 :src="data.favicon"
                 :alt="`${hostname} favicon`"
-                class="h-6 w-6 object-contain"
+                class="h-5 w-5 object-contain"
                 loading="lazy"
               />
-      
-              <span
-                v-else
-                class="text-sm font-medium text-black/35"
-              >
-                {{ hostname.charAt(0).toUpperCase() }}
-              </span>
             </div>
           </SmoothCorners>
-      
-          <div class="min-w-0">
-            <p
-              class="truncate text-[14px] font-medium leading-[1.2] tracking-[-0.02em] text-black/75"
-            >
-              {{ title }}
-            </p>
-      
-            <p
-              class="mt-1 truncate text-[10px] leading-none text-black/35"
-            >
-              {{ hostname }}
-            </p>
-          </div>
+
+          <span
+            class="mt-2 max-w-[58px] truncate text-[8px] font-medium text-black/40"
+          >
+            {{ hostname }}
+          </span>
         </div>
       </div>
 
-      <!-- DARK HOVER OVERLAY -->
       <div
         ref="overlayRef"
         class="pointer-events-none absolute inset-0 bg-black opacity-0"
       />
 
-      <!-- HOVER DETAILS -->
       <div
         ref="detailsRef"
         class="pointer-events-none absolute inset-0 translate-y-1.5 opacity-0"
       >
-        <!-- TOP LEFT -->
-        <div
-          class="absolute left-3.5 top-3.5 flex max-w-[65%] items-center gap-1.5"
-        >
-          <img
-            v-if="data.favicon"
-            :src="data.favicon"
-            :alt="`${hostname} favicon`"
-            class="h-3.5 w-3.5 shrink-0 object-contain"
-            loading="lazy"
-          />
-
-          <span
-            class="truncate text-[10px] font-medium text-white/85"
-          >
-            {{ hostname }}
-          </span>
-        </div>
-
-        <!-- TOP RIGHT -->
-        <div
-          class="absolute right-3.5 top-3.5 max-w-[28%] text-right"
-        >
-          <span
-            class="text-[8px] font-medium uppercase tracking-[0.12em] text-white/45"
-          >
-            Website
-          </span>
-        </div>
-
-        <!-- BOTTOM LEFT -->
-        <div
-          class="absolute bottom-3.5 left-3.5 max-w-[68%]"
-        >
+        <div class="absolute inset-x-2 bottom-2">
           <p
-            class="line-clamp-2 text-[13px] font-medium leading-[1.15] tracking-[-0.02em] text-white"
+            class="line-clamp-2 text-[9px] font-medium leading-[1.2] text-white"
           >
             {{ title }}
           </p>
-        </div>
 
-        <!-- BOTTOM RIGHT -->
-        <div
-          v-if="description"
-          class="absolute bottom-3.5 right-3.5 max-w-[40%] text-right"
-        >
-          <p
-            class="line-clamp-2 text-[9px] leading-[1.4] text-white/75"
-          >
-            {{ description }}
-          </p>
+          <div class="mt-1 flex items-center gap-1">
+            <span class="truncate text-[7px] text-white/60">
+              {{ hostname }}
+            </span>
+
+            <ExternalLink
+              :size="8"
+              :stroke-width="1.8"
+              class="shrink-0 text-white/55"
+            />
+          </div>
         </div>
       </div>
 
-      <!-- CLICK TARGET -->
       <a
         :href="data.url"
         target="_blank"

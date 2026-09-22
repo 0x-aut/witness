@@ -16,6 +16,7 @@ import type * as agents_composio from "../agents/composio.js";
 import type * as agents_messages from "../agents/messages.js";
 import type * as agents_summarize from "../agents/summarize.js";
 import type * as agents_threads from "../agents/threads.js";
+import type * as agents_tools_agentmail from "../agents/tools/agentmail.js";
 import type * as agents_tools_cases from "../agents/tools/cases.js";
 import type * as agents_tools_composio from "../agents/tools/composio.js";
 import type * as agents_tools_web from "../agents/tools/web.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   "agents/messages": typeof agents_messages;
   "agents/summarize": typeof agents_summarize;
   "agents/threads": typeof agents_threads;
+  "agents/tools/agentmail": typeof agents_tools_agentmail;
   "agents/tools/cases": typeof agents_tools_cases;
   "agents/tools/composio": typeof agents_tools_composio;
   "agents/tools/web": typeof agents_tools_web;

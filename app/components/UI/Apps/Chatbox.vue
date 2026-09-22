@@ -6,7 +6,10 @@ import {
   Plus,
   X,
 } from "@lucide/vue";
-import { useAgentChat } from "~/composables/useAgentChat";
+import {
+  useAgentChat,
+  type AgentChatFile,
+} from "~/composables/useAgentChat";
 
 interface PendingFile {
   file: File;
@@ -50,23 +53,57 @@ const {
 
 const route = useRoute();
 
-const username = route.params.username as string;
-const showQuestionInterruption = computed(() => pendingUserAction.value?.type === "question");
-const showApprovalInterruption = computed(() => pendingUserAction.value?.type === "approval");
+const username =
+  route.params.username as string;
+
+const showQuestionInterruption =
+  computed(
+    () =>
+      pendingUserAction.value?.type ===
+      "question",
+  );
+
+const showApprovalInterruption =
+  computed(
+    () =>
+      pendingUserAction.value?.type ===
+      "approval",
+  );
+
+const showUploadInterruption =
+  computed(
+    () =>
+      pendingUserAction.value?.type ===
+      "upload_file",
+  );
+
 const message = ref("");
+
 const textareaRef =
   ref<HTMLTextAreaElement | null>(
     null,
   );
+
 const messageListRef =
-  ref<HTMLElement | null>(null);
+  ref<HTMLElement | null>(
+    null,
+  );
+
 const fileInputRef =
   ref<HTMLInputElement | null>(
     null,
   );
 
-const pendingDraft = ref("");
-const abortedRef = ref(false);
+const enlargedFile =
+  ref<AgentChatFile | null>(
+    null,
+  );
+
+const pendingDraft =
+  ref("");
+
+const abortedRef =
+  ref(false);
 
 const pendingFiles =
   ref<PendingFile[]>([]);
@@ -76,11 +113,10 @@ const MAX_TEXTAREA_HEIGHT = 200;
 
 const hasDraft = computed(
   () =>
-    message.value.trim()
+    message.value
+      .trim()
       .length > 0,
 );
-
-const showUploadInterruption = computed(() => pendingUserAction.value?.type === "upload_file",);
 
 const hasStarted = computed(
   () =>
@@ -122,10 +158,11 @@ function adjustHeight() {
   textarea.style.height =
     "auto";
 
-  textarea.style.height = `${Math.min(
-    textarea.scrollHeight,
-    MAX_TEXTAREA_HEIGHT,
-  )}px`;
+  textarea.style.height =
+    `${Math.min(
+      textarea.scrollHeight,
+      MAX_TEXTAREA_HEIGHT,
+    )}px`;
 }
 
 async function scrollToBottom() {
@@ -139,7 +176,8 @@ async function scrollToBottom() {
   }
 
   list.scrollTo({
-    top: list.scrollHeight,
+    top:
+      list.scrollHeight,
     behavior: "smooth",
   });
 }
@@ -148,10 +186,12 @@ function restoreDraft() {
   message.value =
     pendingDraft.value;
 
-  pendingDraft.value = "";
+  pendingDraft.value =
+    "";
 
   nextTick(() => {
     adjustHeight();
+
     textareaRef.value?.focus();
   });
 }
@@ -176,6 +216,7 @@ async function sendMessage() {
   }
 
   requestError.value = "";
+
   abortedRef.value = false;
 
   pendingDraft.value =
@@ -268,6 +309,7 @@ function createPendingFile(
 
   return {
     file,
+
     previewUrl:
       isPreviewable
         ? URL.createObjectURL(
@@ -304,12 +346,14 @@ function handleFiles(
     return;
   }
 
-  for (const file of Array.from(
-    input.files,
-  ).slice(
-    0,
-    remainingSlots,
-  )) {
+  for (
+    const file of Array.from(
+      input.files,
+    ).slice(
+      0,
+      remainingSlots,
+    )
+  ) {
     const key =
       getFileKey(file);
 
@@ -353,8 +397,10 @@ function removePendingFile(
 }
 
 function clearPendingFiles() {
-  for (const item of
-    pendingFiles.value) {
+  for (
+    const item of
+      pendingFiles.value
+  ) {
     if (item.previewUrl) {
       URL.revokeObjectURL(
         item.previewUrl,
@@ -365,23 +411,104 @@ function clearPendingFiles() {
   pendingFiles.value = [];
 }
 
-function fileStackStyle(
+function pendingFileStackStyle(
   index: number,
 ) {
-  const rotations = [5, -7, 7, -5, ];
+  const rotations = [
+    5,
+    -7,
+    7,
+    -5,
+  ];
 
-  const count = displayedFiles.value.length;
+  const count =
+    displayedFiles.value.length;
 
-  const center = (count - 1) / 2;
+  const center =
+    (count - 1) / 2;
 
   const gap = 22;
 
-  const translateX = (index - center) * gap;
+  const translateX =
+    (index - center) * gap;
 
   return {
-    transform: `translate(-50%, -50%) translateX(${translateX}px) rotate(${rotations[index % rotations.length]}deg)`,
-    zIndex: 10 + index,
+    transform:
+      `translate(-50%, -50%) translateX(${translateX}px) rotate(${rotations[index % rotations.length]}deg)`,
+    zIndex:
+      10 + index,
   };
+}
+
+function chatFileStackStyle(
+  index: number,
+) {
+  const rotations = [
+    5,
+    -7,
+    7,
+    -5,
+  ];
+
+  return {
+    transform:
+      `translateX(${index * 22}px) rotate(${rotations[index % rotations.length]}deg)`,
+    zIndex:
+      10 + index,
+  };
+}
+
+function isChatImage(
+  file: AgentChatFile,
+) {
+  return file.mimeType.startsWith(
+    "image/",
+  );
+}
+
+function isChatPdf(
+  file: AgentChatFile,
+) {
+  return (
+    file.mimeType ===
+    "application/pdf"
+  );
+}
+
+function isUploadedTextMessage(
+  chatMessage: {
+    role:
+      | "user"
+      | "assistant";
+    content: string;
+  },
+) {
+  return (
+    chatMessage.role ===
+      "user" &&
+    chatMessage.content
+      .trim()
+      .startsWith("Uploaded:")
+  );
+}
+
+function openChatFile(
+  file: AgentChatFile,
+) {
+  if (
+    !isChatImage(file) ||
+    !file.url
+  ) {
+    return;
+  }
+
+  enlargedFile.value =
+    file;
+}
+
+function closeChatFile() {
+  enlargedFile.value =
+    null;
 }
 
 async function sendPendingFiles() {
@@ -392,8 +519,7 @@ async function sendPendingFiles() {
     !action ||
     action.type !==
       "upload_file" ||
-    !pendingFiles.value
-      .length ||
+    !pendingFiles.value.length ||
     isUploadingFiles.value ||
     isDecliningUserAction.value
   ) {
@@ -421,66 +547,115 @@ async function sendPendingFiles() {
 }
 
 async function allowApproval() {
-  const action = pendingUserAction.value;
+  const action =
+    pendingUserAction.value;
 
-  if (!action || action.type !== "approval" || isCreating.value) {
+  if (
+    !action ||
+    action.type !==
+      "approval" ||
+    isCreating.value
+  ) {
     return;
   }
 
   requestError.value = "";
 
   try {
-    await resolveUserAction(action.id, "Allowed");
+    await resolveUserAction(
+      action.id,
+      "Allowed",
+    );
   } catch (error) {
-    requestError.value = error instanceof Error ? error.message : "Witness could not process the approval.";
+    requestError.value =
+      error instanceof Error
+        ? error.message
+        : "Witness could not process the approval.";
   }
 }
 
 async function denyApproval() {
-  const action = pendingUserAction.value;
+  const action =
+    pendingUserAction.value;
 
-  if (!action || action.type !== "approval" || isCreating.value) {
+  if (
+    !action ||
+    action.type !==
+      "approval" ||
+    isCreating.value
+  ) {
     return;
   }
 
   requestError.value = "";
 
   try {
-    await declineUserAction(action.id, "Denied");
+    await declineUserAction(
+      action.id,
+      "Denied",
+    );
   } catch (error) {
-    requestError.value = error instanceof Error ? error.message : "Witness could not continue right now.";
+    requestError.value =
+      error instanceof Error
+        ? error.message
+        : "Witness could not continue right now.";
   }
 }
 
-async function submitQuestionAnswer(response: string) {
-  const action = pendingUserAction.value;
+async function submitQuestionAnswer(
+  response: string,
+) {
+  const action =
+    pendingUserAction.value;
 
-  if (!action || action.type !== "question" || isCreating.value) {
+  if (
+    !action ||
+    action.type !==
+      "question" ||
+    isCreating.value
+  ) {
     return;
   }
 
   requestError.value = "";
 
   try {
-    await resolveUserAction(action.id, response);
+    await resolveUserAction(
+      action.id,
+      response,
+    );
   } catch (error) {
-    requestError.value = error instanceof Error ? error.message : "Witness could not process your answer.";
+    requestError.value =
+      error instanceof Error
+        ? error.message
+        : "Witness could not process your answer.";
   }
 }
 
 async function declineQuestion() {
-  const action = pendingUserAction.value;
+  const action =
+    pendingUserAction.value;
 
-  if (!action || action.type !== "question" || isCreating.value) {
+  if (
+    !action ||
+    action.type !==
+      "question" ||
+    isCreating.value
+  ) {
     return;
   }
 
   requestError.value = "";
 
   try {
-    await declineUserAction(action.id);
+    await declineUserAction(
+      action.id,
+    );
   } catch (error) {
-    requestError.value = error instanceof Error ? error.message : "Witness could not continue right now.";
+    requestError.value =
+      error instanceof Error
+        ? error.message
+        : "Witness could not continue right now.";
   }
 }
 
@@ -517,14 +692,18 @@ async function declineUploadRequest() {
 watch(
   message,
   () => {
-    nextTick(adjustHeight);
+    nextTick(
+      adjustHeight,
+    );
   },
 );
 
 watch(
   messages,
   () => {
-    nextTick(scrollToBottom);
+    nextTick(
+      scrollToBottom,
+    );
   },
   {
     deep: true,
@@ -577,7 +756,8 @@ onUnmounted(() => {
             :data-index="idx"
             :class="[
               'flex w-full',
-              chatMessage.role === 'user'
+              chatMessage.role ===
+              'user'
                 ? 'justify-end'
                 : 'justify-start',
               idx > 0
@@ -585,18 +765,128 @@ onUnmounted(() => {
                 : '',
             ]"
           >
-            <UIElementsUserMessageBubble
+            <!-- PERSISTENT FILE MESSAGE -->
+            <div
               v-if="
                 chatMessage.role ===
-                'user'
+                  'user' &&
+                chatMessage.files?.length
+              "
+              class="relative flex h-12 shrink-0"
+              :style="{
+                width: `${
+                  48 +
+                  Math.max(
+                    chatMessage.files.length -
+                      1,
+                    0,
+                  ) *
+                    22
+                }px`,
+              }"
+            >
+              <button
+                v-for="(
+                  file,
+                  fileIndex
+                ) in chatMessage.files.slice(
+                  0,
+                  4,
+                )"
+                :key="file.id"
+                type="button"
+                class="absolute left-0 top-0 h-12 w-12 cursor-pointer transition-[filter] duration-150 hover:brightness-[0.94]"
+                :style="
+                  chatFileStackStyle(
+                    fileIndex,
+                  )
+                "
+                :aria-label="
+                  isChatImage(file)
+                    ? `Open ${file.filename}`
+                    : file.filename
+                "
+                @click="
+                  openChatFile(file)
+                "
+              >
+                <SmoothCorners
+                  as-child
+                  :corners="{
+                    radius: 10,
+                    smoothing: 0.65,
+                  }"
+                  :middle-border="{
+                    width: 1,
+                    color: '#E3E3E3',
+                    opacity: 1,
+                  }"
+                >
+                  <div
+                    class="relative h-12 w-12 overflow-hidden bg-white shadow-[0_3px_10px_rgba(0,0,0,0.08)]"
+                  >
+                    <img
+                      v-if="
+                        isChatImage(file) &&
+                        file.url
+                      "
+                      :src="
+                        file.url
+                      "
+                      :alt="
+                        file.filename
+                      "
+                      draggable="false"
+                      class="h-full w-full object-cover"
+                    />
+
+                    <iframe
+                      v-else-if="
+                        isChatPdf(file) &&
+                        file.url
+                      "
+                      :src="`${file.url}#page=1&toolbar=0&navpanes=0&scrollbar=0`"
+                      :title="
+                        file.filename
+                      "
+                      class="pointer-events-none h-full w-full border-0"
+                    />
+
+                    <div
+                      v-else
+                      class="flex h-full w-full items-center justify-center bg-[#F7F7F7]"
+                    >
+                      <FileText
+                        :size="20"
+                        :stroke-width="1.7"
+                        class="text-[#6B6B6B]"
+                      />
+                    </div>
+                  </div>
+                </SmoothCorners>
+              </button>
+            </div>
+
+            <!-- NORMAL USER MESSAGE -->
+            <UIElementsUserMessageBubble
+              v-else-if="
+                chatMessage.role ===
+                  'user' &&
+                !isUploadedTextMessage(
+                  chatMessage,
+                )
               "
               :content="
                 chatMessage.content
               "
             />
 
+            <!-- ASSISTANT -->
             <Markdown
-              v-else
+              v-else-if="
+                chatMessage.role ===
+                'assistant'
+              "
               :streaming="
                 isGenerating
               "
@@ -666,18 +956,16 @@ onUnmounted(() => {
             }"
             :duration="0.35"
           >
-            <!-- ================================================== -->
             <!-- UPLOAD INTERRUPTION -->
-            <!-- ================================================== -->
-
             <div
-              v-if="showUploadInterruption"
+              v-if="
+                showUploadInterruption
+              "
               key="upload-interruption"
               class="flex w-full items-center justify-center gap-x-2"
               role="group"
               aria-label="Upload requested"
             >
-              <!-- Plus -->
               <SmoothCorners
                 as-child
                 :corners="{
@@ -721,10 +1009,11 @@ onUnmounted(() => {
                 multiple
                 accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,image/*"
                 class="hidden"
-                @change="handleFiles"
+                @change="
+                  handleFiles
+                "
               />
 
-              <!-- Upload pill -->
               <SmoothCorners
                 as-child
                 :corners="{
@@ -740,7 +1029,6 @@ onUnmounted(() => {
                 <div
                   class="flex h-14 w-[280px] max-w-full items-center justify-center overflow-visible bg-white px-4"
                 >
-                  <!-- Empty -->
                   <GSAPTransition
                     v-if="
                       !pendingFiles.length &&
@@ -759,7 +1047,6 @@ onUnmounted(() => {
                     </span>
                   </GSAPTransition>
 
-                  <!-- Uploading -->
                   <GSAPTransition
                     v-else-if="
                       isUploadingFiles
@@ -778,7 +1065,6 @@ onUnmounted(() => {
                     />
                   </GSAPTransition>
 
-                  <!-- Selected -->
                   <GSAPTransition
                     v-else
                     :hidden="{
@@ -811,7 +1097,7 @@ onUnmounted(() => {
                           "
                           class="absolute left-1/2 top-1/2 h-12 w-12 cursor-pointer transition-[filter] duration-150 hover:brightness-[0.94]"
                           :style="
-                            fileStackStyle(
+                            pendingFileStackStyle(
                               index,
                             )
                           "
@@ -837,7 +1123,6 @@ onUnmounted(() => {
                             <div
                               class="relative h-12 w-12 overflow-hidden bg-white shadow-[0_3px_10px_rgba(0,0,0,0.08)]"
                             >
-                              <!-- Image -->
                               <img
                                 v-if="
                                   item.previewUrl &&
@@ -855,7 +1140,6 @@ onUnmounted(() => {
                                 class="h-full w-full object-cover"
                               />
 
-                              <!-- PDF -->
                               <iframe
                                 v-else-if="
                                   item.previewUrl &&
@@ -869,7 +1153,6 @@ onUnmounted(() => {
                                 class="pointer-events-none h-full w-full border-0"
                               />
 
-                              <!-- Other document -->
                               <div
                                 v-else
                                 class="flex h-full w-full items-center justify-center bg-[#F7F7F7]"
@@ -889,7 +1172,6 @@ onUnmounted(() => {
                 </div>
               </SmoothCorners>
 
-              <!-- Right control -->
               <SmoothCorners
                 as-child
                 :corners="{
@@ -952,29 +1234,48 @@ onUnmounted(() => {
             </div>
 
             <UIElementsAgentApprovalPill
-              v-else-if="showApprovalInterruption"
+              v-else-if="
+                showApprovalInterruption
+              "
               key="approval-interruption"
-              :action="pendingUserAction"
-              :busy="isCreating"
-              @allow="allowApproval"
-              @deny="denyApproval"
+              :action="
+                pendingUserAction
+              "
+              :busy="
+                isCreating
+              "
+              @allow="
+                allowApproval
+              "
+              @deny="
+                denyApproval
+              "
             />
 
             <UIElementsAgentQuestionPill
-              v-else-if="showQuestionInterruption"
+              v-else-if="
+                showQuestionInterruption
+              "
               key="question-interruption"
-              :action="pendingUserAction"
-              :busy="isCreating"
-              @answer="submitQuestionAnswer"
-              @decline="declineQuestion"
+              :action="
+                pendingUserAction
+              "
+              :busy="
+                isCreating
+              "
+              @answer="
+                submitQuestionAnswer
+              "
+              @decline="
+                declineQuestion
+              "
             />
 
-            <!-- ================================================== -->
             <!-- NORMAL CHAT -->
-            <!-- ================================================== -->
-
             <div
-              v-else-if="!isCreating"
+              v-else-if="
+                !isCreating
+              "
               key="chat-input"
               class="relative w-full"
             >
@@ -1012,7 +1313,6 @@ onUnmounted(() => {
                   <div
                     class="flex w-full items-center justify-between"
                   >
-                    <!-- Attach -->
                     <SmoothCorners
                       as-child
                       :corners="{
@@ -1045,6 +1345,17 @@ onUnmounted(() => {
                         />
                       </button>
                     </SmoothCorners>
+
+                    <input
+                      ref="fileInputRef"
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.ppt,.pptx,image/*"
+                      class="hidden"
+                      @change="
+                        handleFiles
+                      "
+                    />
 
                     <SmoothCorners
                       as-child
@@ -1081,10 +1392,7 @@ onUnmounted(() => {
               </SmoothCorners>
             </div>
 
-            <!-- ================================================== -->
             <!-- WORKING -->
-            <!-- ================================================== -->
-
             <div
               v-else
               key="creating-pill"
@@ -1161,5 +1469,61 @@ onUnmounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- IMAGE PREVIEW -->
+    <Transition
+      enter-active-class="transition duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="enlargedFile"
+        class="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 p-8"
+        @click.self="
+          closeChatFile
+        "
+      >
+        <SmoothCorners
+          :corners="{
+            radius: 18,
+            smoothing: 0.7,
+          }"
+        >
+          <div
+            class="relative max-h-[85vh] max-w-[85vw] overflow-hidden bg-white p-2 shadow-[0_20px_60px_rgba(0,0,0,0.2)]"
+          >
+            <img
+              v-if="
+                enlargedFile.url
+              "
+              :src="
+                enlargedFile.url
+              "
+              :alt="
+                enlargedFile.filename
+              "
+              class="max-h-[80vh] max-w-[80vw] object-contain"
+            />
+
+            <button
+              type="button"
+              class="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full bg-black/70 text-white"
+              aria-label="Close preview"
+              @click="
+                closeChatFile
+              "
+            >
+              <X
+                :size="14"
+                :stroke-width="2"
+              />
+            </button>
+          </div>
+        </SmoothCorners>
+      </div>
+    </Transition>
   </div>
 </template>

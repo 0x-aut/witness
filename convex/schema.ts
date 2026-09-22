@@ -235,10 +235,17 @@ export default defineSchema({
     filename: v.string(),
     mimeType: v.string(),
     size: v.number(),
+  
+    threadId: v.optional(v.string()),
+    messageOrder: v.optional(v.number()),
   })
     .index("by_user_id", ["userId"])
     .index("by_case_id", ["caseId"])
-    .index("by_agent_id", ["agentId"]),
+    .index("by_agent_id", ["agentId"])
+    .index("by_thread_id_order", [
+      "threadId",
+      "messageOrder",
+    ]),
 
   integrations: defineTable({
     userId: v.string(),

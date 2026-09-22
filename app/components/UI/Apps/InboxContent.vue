@@ -30,12 +30,18 @@ const props = defineProps<{
   item: InboxItem | null;
 }>();
 
-// const { mutate: replyToEmail } = useConvexMutation(api.agentmail.replyToEmail);
+const route = useRoute();
+const router = useRouter();
 const convex = useConvexClient();
+
 const replying = ref(false);
+const drafting = ref(false);
 const sending = ref(false);
 const replyText = ref("");
+const replyError = ref("");
 const replyMode = ref<"agent" | "myself">("myself");
+
+const username = computed(() => String(route.params.username));
 
 const isEmail = computed(
   () => props.item?.types === "email",
@@ -48,38 +54,93 @@ const canReply = computed(
     !!props.item?.externalId,
 );
 
-const openReply = (mode: "agent" | "myself") => {
+async function openReply(mode: "agent" | "myself") {
   replyMode.value = mode;
   replying.value = true;
-};
+  replyError.value = "";
+  replyText.value = "";
 
-const closeReply = () => {
+  if (mode !== "agent" || !props.item) {
+    return;
+  }
+
+  drafting.value = true;
+
+  try {
+    const result = await convex.action(
+      api.agentmails.actions.prepareWitnessReply,
+      {
+        inboxItemId: props.item._id,
+      },
+    );
+
+    replyText.value = result.draft;
+  } catch (error) {
+    console.error("Failed to prepare Witness reply:", error);
+    replyError.value =
+      error instanceof Error
+        ? error.message
+        : "Witness could not prepare a reply.";
+  } finally {
+    drafting.value = false;
+  }
+}
+
+function closeReply() {
   if (sending.value) return;
 
   replying.value = false;
+  drafting.value = false;
   replyText.value = "";
-};
+  replyError.value = "";
+}
 
 async function sendReply() {
-  if (!props.item || !replyText.value.trim() || sending.value) return;
+  if (!props.item || !replyText.value.trim() || sending.value || drafting.value) {
+    return;
+  }
 
   sending.value = true;
+  replyError.value = "";
 
   try {
-    
-    
-    await convex.action(api.agentmails.actions.replyToEmail, {
-      inboxItemId: props.item._id,
-      text: replyText.value.trim(),
-    });
+    if (replyMode.value === "agent") {
+      await convex.action(
+        api.agentmails.actions.sendWitnessReply,
+        {
+          inboxItemId: props.item._id,
+          text: replyText.value.trim(),
+        },
+      );
+    } else {
+      await convex.action(
+        api.agentmails.actions.replyToEmail,
+        {
+          inboxItemId: props.item._id,
+          text: replyText.value.trim(),
+        },
+      );
+    }
 
     replyText.value = "";
     replying.value = false;
   } catch (error) {
     console.error("Failed to send reply:", error);
+    replyError.value =
+      error instanceof Error
+        ? error.message
+        : "Failed to send reply.";
   } finally {
     sending.value = false;
   }
+}
+
+function openCase() {
+  if (!props.item?.caseId) return;
+
+  router.push(
+    `/${username.value}/cases/${props.item.caseId}`,
+  );
 }
 
 const formatDate = (timestamp: number) =>
@@ -134,6 +195,21 @@ const formatDate = (timestamp: number) =>
             {{ item.source || "Witness" }}
           </span>
         </div>
+
+        <button
+          v-if="item.caseId"
+          type="button"
+          class="group mt-5 inline-flex items-center gap-1.5 text-[11px] font-medium text-black/40 transition hover:text-black"
+          @click="openCase"
+        >
+          Open Case
+
+          <ArrowUpRight
+            :size="13"
+            :stroke-width="1.7"
+            class="transition-transform duration-150 group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
+          />
+        </button>
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
@@ -154,8 +230,11 @@ const formatDate = (timestamp: number) =>
             class="flex items-center gap-2 rounded-full bg-black px-4 py-2.5 text-[12px] font-medium text-white transition hover:bg-black/85"
             @click="openReply('agent')"
           >
-            <Sparkles :size="14" :stroke-width="1.8" />
-            Use Agent
+            <Sparkles
+              :size="14"
+              :stroke-width="1.8"
+            />
+            Use Witness
           </button>
 
           <button
@@ -164,18 +243,6 @@ const formatDate = (timestamp: number) =>
             @click="openReply('myself')"
           >
             Write myself
-          </button>
-
-          <button
-            v-if="item.caseId"
-            type="button"
-            class="flex items-center gap-2 rounded-full px-3 py-2.5 text-[12px] text-black/40 transition hover:bg-black/5 hover:text-black"
-          >
-            Open case
-            <ExternalLink
-              :size="13"
-              :stroke-width="1.7"
-            />
           </button>
         </div>
       </div>
@@ -204,18 +271,36 @@ const formatDate = (timestamp: number) =>
               class="flex h-7 w-7 items-center justify-center rounded-full text-black/35 transition hover:bg-black/5 hover:text-black"
               @click="closeReply"
             >
-              <X :size="14" :stroke-width="1.8" />
+              <X
+                :size="14"
+                :stroke-width="1.8"
+              />
             </button>
           </div>
 
+          <div
+            v-if="replyError"
+            class="mx-2 mb-2 rounded-[8px] bg-red-50 px-3 py-2 text-[11px] text-red-600"
+          >
+            {{ replyError }}
+          </div>
+
+          <div
+            v-if="drafting"
+            class="flex min-h-36 items-center justify-center"
+          >
+            <Loader />
+          </div>
+
           <textarea
+            v-else
             v-model="replyText"
             autofocus
             rows="6"
             class="w-full resize-none border-none bg-transparent px-2 py-2 text-[13px] leading-6 text-black outline-none placeholder:text-black/25"
             :placeholder="
               replyMode === 'agent'
-                ? 'Tell Witness what you want to say, and it will prepare the reply…'
+                ? 'Witness will prepare the reply…'
                 : 'Write your reply…'
             "
             @keydown.meta.enter="sendReply"
@@ -224,26 +309,36 @@ const formatDate = (timestamp: number) =>
 
           <div class="flex items-center justify-between px-2 pt-2">
             <span class="text-[10px] text-black/25">
-              {{ replyMode === "agent" ? "Witness-assisted reply" : "Your reply" }}
+              {{
+                replyMode === "agent"
+                  ? "Witness drafted this reply · edit before sending"
+                  : "Your reply"
+              }}
             </span>
 
             <button
               type="button"
               class="flex items-center gap-2 rounded-full bg-black px-4 py-2.5 text-[12px] font-medium text-white transition hover:bg-black/85 disabled:cursor-not-allowed disabled:opacity-40"
-              :disabled="sending || !replyText.trim()"
+              :disabled="sending || drafting || !replyText.trim()"
               @click="sendReply"
             >
               <Send
+                v-if="!sending"
                 :size="13"
                 :stroke-width="1.8"
-                v-if="!sending"
               />
-              <div class="h-full items-center">
-                <span v-if="!sending" class="unmodified-font-sans">
-                  Send reply
-                </span>
-                <Loader v-else />
-              </div>
+
+              <Loader v-else />
+
+              <span>
+                {{
+                  sending
+                    ? "Sending…"
+                    : replyMode === "agent"
+                      ? "Approve & send"
+                      : "Send reply"
+                }}
+              </span>
             </button>
           </div>
         </div>

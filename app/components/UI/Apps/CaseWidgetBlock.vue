@@ -5,20 +5,35 @@ const props = defineProps<{
   widgets: Array<{
     _id: string;
     type: string;
-    data: Record<string, unknown>;
+    data: Record<string, any>;
   }>;
 }>();
 
-const widgets = computed(() => props.widgets);
+const documentWidgets = computed(() =>
+  props.widgets.filter(widget => widget.type === "document"),
+);
+
+const otherWidgets = computed(() =>
+  props.widgets.filter(widget => widget.type !== "document"),
+);
 </script>
 
 <template>
   <div
     v-if="widgets.length"
-    class="grid grid-cols-[repeat(auto-fill,minmax(180px,1fr))] gap-3"
+    class="space-y-4"
   >
+    <UIElementsCaseDocumentWidget
+      v-if="documentWidgets.length"
+      :documents="
+        documentWidgets.map(widget => ({
+          ...widget.data,
+        }))
+      "
+    />
+
     <template
-      v-for="widget in widgets"
+      v-for="widget in otherWidgets"
       :key="widget._id"
     >
       <UIElementsCaseWebsiteWidget
@@ -31,7 +46,6 @@ const widgets = computed(() => props.widgets);
         :data="widget.data"
       />
 
-      <!-- Existing widget types -->
       <UIElementsCaseGenericWidget
         v-else
         :type="widget.type"

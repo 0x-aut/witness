@@ -6,6 +6,8 @@ import {
   query,
 } from "../_generated/server";
 
+import type { Id } from "../_generated/dataModel";
+
 import {
   internal,
   components,
@@ -56,9 +58,11 @@ export const sendMessage = mutation({
       );
     }
 
-    const user = await getCurrentUser(ctx);
+    const user =
+      await getCurrentUser(ctx);
 
-    const userId = user._id;
+    const userId =
+      user._id;
 
     const displayUsername =
       (
@@ -67,9 +71,12 @@ export const sendMessage = mutation({
         "there"
       ) as string;
 
-    const now = Date.now();
+    const now =
+      Date.now();
 
-    let threadId = args.threadId;
+    let threadId =
+      args.threadId;
+
     let agentId;
 
     if (!threadId) {
@@ -81,29 +88,31 @@ export const sendMessage = mutation({
       /*
        * Create the application Agent first.
        */
-      agentId = await ctx.db.insert(
-        "agents",
-        {
-          userId,
-          name: "Witness",
-          title,
-          task: prompt,
-          status: "running",
-          updatedAt: now,
-        },
-      );
+      agentId =
+        await ctx.db.insert(
+          "agents",
+          {
+            userId,
+            name: "Witness",
+            title,
+            task: prompt,
+            status: "running",
+            updatedAt: now,
+          },
+        );
 
       /*
        * Create the Convex Agent thread.
        */
-      threadId = await createThread(
-        ctx,
-        components.agent,
-        {
-          userId,
-          title,
-        },
-      );
+      threadId =
+        await createThread(
+          ctx,
+          components.agent,
+          {
+            userId,
+            title,
+          },
+        );
 
       /*
        * Link the application Agent to the
@@ -114,7 +123,8 @@ export const sendMessage = mutation({
         {
           userId,
           agentId,
-          externalThreadId: threadId,
+          externalThreadId:
+            threadId,
           updatedAt: now,
         },
       );
@@ -125,7 +135,8 @@ export const sendMessage = mutation({
        */
       ctx.scheduler.runAfter(
         0,
-        internal.agents.summarize.summarizeInitial,
+        internal.agents.summarize
+          .summarizeInitial,
         {
           agentId,
           threadId,
@@ -196,7 +207,10 @@ export const sendMessage = mutation({
       }
     }
 
-    if (!agentId || !threadId) {
+    if (
+      !agentId ||
+      !threadId
+    ) {
       throw new Error(
         "Agent could not be initialized.",
       );
@@ -221,7 +235,8 @@ export const sendMessage = mutation({
 
     await ctx.scheduler.runAfter(
       0,
-      internal.agents.chat.generateResponse,
+      internal.agents.chat
+        .generateResponse,
       {
         threadId,
         promptMessageId:
@@ -283,28 +298,37 @@ export const resolveUserAction =
       actionId:
         v.id("userActions"),
 
-      response: v.optional(
-        v.string(),
-      ),
-
-      files: v.optional(
-        v.array(
-          v.object({
-            storageId:
-              v.id("_storage"),
-            filename: v.string(),
-            mimeType: v.string(),
-            size: v.number(),
-          }),
+      response:
+        v.optional(
+          v.string(),
         ),
-      ),
+
+      files:
+        v.optional(
+          v.array(
+            v.object({
+              storageId:
+                v.id("_storage"),
+              filename:
+                v.string(),
+              mimeType:
+                v.string(),
+              size:
+                v.number(),
+            }),
+          ),
+        ),
     },
 
-    handler: async (ctx, args) => {
+    handler: async (
+      ctx,
+      args,
+    ) => {
       const user =
         await getCurrentUser(ctx);
 
-      const now = Date.now();
+      const now =
+        Date.now();
 
       const action =
         await ctx.db.get(
@@ -313,7 +337,8 @@ export const resolveUserAction =
 
       if (
         !action ||
-        action.userId !== user._id
+        action.userId !==
+          user._id
       ) {
         throw new Error(
           "User action not found.",
@@ -321,7 +346,8 @@ export const resolveUserAction =
       }
 
       if (
-        action.status !== "pending"
+        action.status !==
+        "pending"
       ) {
         throw new Error(
           "This user action has already been resolved.",
@@ -340,7 +366,8 @@ export const resolveUserAction =
 
       if (
         !agent ||
-        agent.userId !== user._id ||
+        agent.userId !==
+          user._id ||
         !caseData ||
         caseData.userId !==
           user._id
@@ -356,8 +383,10 @@ export const resolveUserAction =
       if (
         action.type ===
           "upload_file" &&
-        (!args.files ||
-          args.files.length === 0)
+        (
+          !args.files ||
+          args.files.length === 0
+        )
       ) {
         throw new Error(
           "At least one document is required.",
@@ -417,9 +446,8 @@ export const resolveUserAction =
        * Store uploaded files in the application's
        * files table and create Case document widgets.
        */
-      const fileIds: Array<
-        any
-      > = [];
+      const fileIds:
+        Id<"files">[] = [];
 
       let latestWidgetBlock =
         await ctx.db
@@ -435,32 +463,44 @@ export const resolveUserAction =
           .order("desc")
           .first();
 
-      const documentWidgetIds: Array<
-        any
-      > = [];
+      const documentWidgetIds:
+        Id<"caseWidgets">[] =
+        [];
 
-      for (const file of
-        args.files ?? []) {
+      for (
+        const file of
+          args.files ?? []
+      ) {
         const fileId =
           await ctx.db.insert(
             "files",
             {
-              userId: user._id,
+              userId:
+                user._id,
+
               caseId:
                 action.caseId,
+
               agentId:
                 action.agentId,
+
               storageId:
                 file.storageId,
+
               filename:
                 file.filename,
+
               mimeType:
                 file.mimeType,
-              size: file.size,
+
+              size:
+                file.size,
             },
           );
 
-        fileIds.push(fileId);
+        fileIds.push(
+          fileId,
+        );
 
         const widgetId =
           await ctx.db.insert(
@@ -468,9 +508,13 @@ export const resolveUserAction =
             {
               userId:
                 user._id,
+
               caseId:
                 action.caseId,
-              type: "document",
+
+              type:
+                "document",
+
               data: {
                 fileId,
                 storageId:
@@ -479,10 +523,15 @@ export const resolveUserAction =
                   file.filename,
                 mimeType:
                   file.mimeType,
-                size: file.size,
+                size:
+                  file.size,
               },
-              createdAt: now,
-              updatedAt: now,
+
+              createdAt:
+                now,
+
+              updatedAt:
+                now,
             },
           );
 
@@ -507,28 +556,41 @@ export const resolveUserAction =
               widgetIds: [
                 ...(latestWidgetBlock.widgetIds ??
                   []),
+
                 ...documentWidgetIds,
               ],
-              updatedAt: now,
+
+              updatedAt:
+                now,
             },
           );
         } else {
           await ctx.db.insert(
             "caseBlocks",
             {
-              userId: user._id,
+              userId:
+                user._id,
+
               caseId:
                 action.caseId,
-              type: "widget",
+
+              type:
+                "widget",
+
               order:
                 latestWidgetBlock
                   ? latestWidgetBlock.order +
                     1000
                   : 1000,
+
               widgetIds:
                 documentWidgetIds,
-              createdAt: now,
-              updatedAt: now,
+
+              createdAt:
+                now,
+
+              updatedAt:
+                now,
             },
           );
         }
@@ -551,13 +613,18 @@ export const resolveUserAction =
         {
           status:
             "completed",
+
           response,
+
           metadata: {
             ...(action.metadata ??
               {}),
+
             fileIds,
           },
-          completedAt: now,
+
+          completedAt:
+            now,
         },
       );
 
@@ -591,7 +658,8 @@ export const resolveUserAction =
           inboxItem._id,
           {
             read: true,
-            updatedAt: now,
+            updatedAt:
+              now,
           },
         );
       }
@@ -628,12 +696,17 @@ export const resolveUserAction =
           {
             data: {
               ...actionWidget.data,
+
               status:
                 "completed",
+
               response,
+
               fileIds,
             },
-            updatedAt: now,
+
+            updatedAt:
+              now,
           },
         );
       }
@@ -645,42 +718,76 @@ export const resolveUserAction =
       await ctx.db.patch(
         action.agentId,
         {
-          status: "running",
-          updatedAt: now,
+          status:
+            "running",
+
+          updatedAt:
+            now,
         },
       );
 
       await ctx.db.patch(
         action.caseId,
         {
-          status: "active",
-          updatedAt: now,
+          status:
+            "active",
+
+          updatedAt:
+            now,
         },
       );
 
-      const activityTitle = action.type === "upload_file"
-        ? "User uploaded documents"
-        : action.type === "question"
-          ? "User answered a question"
-          : "User approved an action";
-      
-      await ctx.db.insert("caseActivities", {
-        userId: user._id,
-        caseId: action.caseId,
-        agentId: action.agentId,
-        type: "user_action",
-        title: activityTitle,
-        description: response,
-        metadata: { actionId: action._id, actionType: action.type, fileIds },
-        createdAt: now,
-      });
+      const activityTitle =
+        action.type ===
+        "upload_file"
+          ? "User uploaded documents"
+          : action.type ===
+              "question"
+            ? "User answered a question"
+            : "User approved an action";
+
+      await ctx.db.insert(
+        "caseActivities",
+        {
+          userId:
+            user._id,
+
+          caseId:
+            action.caseId,
+
+          agentId:
+            action.agentId,
+
+          type:
+            "user_action",
+
+          title:
+            activityTitle,
+
+          description:
+            response,
+
+          metadata: {
+            actionId:
+              action._id,
+
+            actionType:
+              action.type,
+
+            fileIds,
+          },
+
+          createdAt:
+            now,
+        },
+      );
 
       /*
-       * IMPORTANT:
+       * Create the new user turn.
        *
-       * This creates a NEW user turn in the same Agent thread.
-       * The resulting message order becomes the identity of the
-       * resumed generation.
+       * IMPORTANT:
+       * Store fileIds in message metadata so the chat UI can
+       * reconstruct the file widget after navigation/reload.
        */
       const {
         messageId,
@@ -697,6 +804,18 @@ export const resolveUserAction =
             response,
         },
       );
+      
+      for (const fileId of fileIds) {
+        await ctx.db.patch(
+          fileId,
+          {
+            threadId:
+              thread.externalThreadId,
+            messageOrder:
+              message.order,
+          },
+        );
+      }
 
       await ctx.scheduler.runAfter(
         0,
@@ -705,10 +824,13 @@ export const resolveUserAction =
         {
           threadId:
             thread.externalThreadId,
+
           promptMessageId:
             messageId,
+
           promptOrder:
             message.order,
+
           agentId:
             action.agentId,
         },
@@ -717,8 +839,11 @@ export const resolveUserAction =
       return {
         actionId:
           action._id,
+
         fileIds,
+
         messageId,
+
         messageOrder:
           message.order,
       };
@@ -732,15 +857,24 @@ export const resolveUserAction =
 export const declineUserAction =
   mutation({
     args: {
-      actionId: v.id("userActions"),
-      response: v.optional(v.string()),
+      actionId:
+        v.id("userActions"),
+
+      response:
+        v.optional(
+          v.string(),
+        ),
     },
 
-    handler: async (ctx, args) => {
+    handler: async (
+      ctx,
+      args,
+    ) => {
       const user =
         await getCurrentUser(ctx);
 
-      const now = Date.now();
+      const now =
+        Date.now();
 
       const action =
         await ctx.db.get(
@@ -749,7 +883,8 @@ export const declineUserAction =
 
       if (
         !action ||
-        action.userId !== user._id
+        action.userId !==
+          user._id
       ) {
         throw new Error(
           "User action not found.",
@@ -757,7 +892,8 @@ export const declineUserAction =
       }
 
       if (
-        action.status !== "pending"
+        action.status !==
+        "pending"
       ) {
         throw new Error(
           "This user action has already been resolved.",
@@ -776,7 +912,8 @@ export const declineUserAction =
 
       if (
         !agent ||
-        agent.userId !== user._id ||
+        agent.userId !==
+          user._id ||
         !caseData ||
         caseData.userId !==
           user._id
@@ -819,13 +956,17 @@ export const declineUserAction =
         );
       }
 
-      const response = args.response?.trim() || (
-        action.type === "question"
-          ? "I don't want to answer that. Continue without my answer if you can."
-          : action.type === "approval"
-            ? "I don't approve this action. Continue without it if you can."
-            : "I don't have the requested documents right now. Continue without them if you can."
-      );
+      const response =
+        args.response?.trim() ||
+        (
+          action.type ===
+          "question"
+            ? "I don't want to answer that. Continue without my answer if you can."
+            : action.type ===
+                "approval"
+              ? "I don't approve this action. Continue without it if you can."
+              : "I don't have the requested documents right now. Continue without them if you can."
+        );
 
       /*
        * Cancel ONLY the user action.
@@ -833,11 +974,18 @@ export const declineUserAction =
        * This is deliberately NOT cancelGeneration().
        * The Agent should continue working.
        */
-      await ctx.db.patch(action._id, {
-        status: "cancelled",
-        response,
-        completedAt: now,
-      });
+      await ctx.db.patch(
+        action._id,
+        {
+          status:
+            "cancelled",
+
+          response,
+
+          completedAt:
+            now,
+        },
+      );
 
       /*
        * Mark the Inbox item read.
@@ -869,7 +1017,8 @@ export const declineUserAction =
           inboxItem._id,
           {
             read: true,
-            updatedAt: now,
+            updatedAt:
+              now,
           },
         );
       }
@@ -906,10 +1055,15 @@ export const declineUserAction =
           {
             data: {
               ...actionWidget.data,
-              status: "cancelled",
+
+              status:
+                "cancelled",
+
               response,
             },
-            updatedAt: now,
+
+            updatedAt:
+              now,
           },
         );
       }
@@ -920,41 +1074,75 @@ export const declineUserAction =
       await ctx.db.patch(
         action.agentId,
         {
-          status: "running",
-          updatedAt: now,
+          status:
+            "running",
+
+          updatedAt:
+            now,
         },
       );
 
       await ctx.db.patch(
         action.caseId,
         {
-          status: "active",
-          updatedAt: now,
+          status:
+            "active",
+
+          updatedAt:
+            now,
         },
       );
 
-      const activityTitle = action.type === "upload_file"
-        ? "User declined the document request"
-        : action.type === "question"
-          ? "User skipped the question"
-          : "User declined the approval";
-      
-      await ctx.db.insert("caseActivities", {
-        userId: user._id,
-        caseId: action.caseId,
-        agentId: action.agentId,
-        type: "user_action",
-        title: activityTitle,
-        description: response,
-        metadata: { actionId: action._id, actionType: action.type, declined: true },
-        createdAt: now,
-      });
+      const activityTitle =
+        action.type ===
+        "upload_file"
+          ? "User declined the document request"
+          : action.type ===
+              "question"
+            ? "User skipped the question"
+            : "User declined the approval";
+
+      await ctx.db.insert(
+        "caseActivities",
+        {
+          userId:
+            user._id,
+
+          caseId:
+            action.caseId,
+
+          agentId:
+            action.agentId,
+
+          type:
+            "user_action",
+
+          title:
+            activityTitle,
+
+          description:
+            response,
+
+          metadata: {
+            actionId:
+              action._id,
+
+            actionType:
+              action.type,
+
+            declined:
+              true,
+          },
+
+          createdAt:
+            now,
+        },
+      );
 
       /*
        * Give the Agent an explicit continuation message so it knows
        * the requested evidence is unavailable and should continue.
        */
-
       const {
         messageId,
         message,
@@ -964,8 +1152,10 @@ export const declineUserAction =
         {
           threadId:
             thread.externalThreadId,
+
           userId:
             user._id,
+
           prompt:
             response,
         },
@@ -978,10 +1168,13 @@ export const declineUserAction =
         {
           threadId:
             thread.externalThreadId,
+
           promptMessageId:
             messageId,
+
           promptOrder:
             message.order,
+
           agentId:
             action.agentId,
         },
@@ -990,7 +1183,9 @@ export const declineUserAction =
       return {
         actionId:
           action._id,
+
         messageId,
+
         messageOrder:
           message.order,
       };
@@ -1034,7 +1229,9 @@ export const getPendingUserAction =
           )
           .unique();
 
-      if (!applicationThread) {
+      if (
+        !applicationThread
+      ) {
         return null;
       }
 
@@ -1087,16 +1284,23 @@ export const getPendingUserAction =
           : [];
 
       return {
-        id: action._id,
+        id:
+          action._id,
+
         caseId:
           action.caseId,
+
         agentId:
           action.agentId,
+
         type:
           action.type,
+
         prompt:
           action.prompt,
+
         options,
+
         metadata,
       };
     },
@@ -1200,6 +1404,7 @@ export const generateResponse =
               saveStreamDeltas: {
                 chunking:
                   "word",
+
                 throttleMs:
                   100,
               },
@@ -1242,12 +1447,16 @@ export const generateResponse =
               .summarizeAgentResponse,
             {
               caseId,
+
               agentId:
                 args.agentId,
+
               threadId:
                 args.threadId,
+
               promptMessageId:
                 args.promptMessageId,
+
               responseText:
                 responseText.trim(),
             },
@@ -1268,10 +1477,13 @@ export const generateResponse =
           {
             agentId:
               args.agentId,
+
             threadId:
               args.threadId,
+
             promptOrder:
               args.promptOrder,
+
             status:
               "finished",
           },
@@ -1288,10 +1500,13 @@ export const generateResponse =
           {
             agentId:
               args.agentId,
+
             threadId:
               args.threadId,
+
             promptOrder:
               args.promptOrder,
+
             status:
               "error",
           },
@@ -1346,10 +1561,11 @@ export const finishAgent =
       promptOrder:
         v.number(),
 
-      status: v.union(
-        v.literal("finished"),
-        v.literal("error"),
-      ),
+      status:
+        v.union(
+          v.literal("finished"),
+          v.literal("error"),
+        ),
     },
 
     handler: async (
@@ -1376,10 +1592,16 @@ export const finishAgent =
           {
             threadId:
               args.threadId,
-            order: "desc",
+
+            order:
+              "desc",
+
             paginationOpts: {
-              cursor: null,
-              numItems: 1,
+              cursor:
+                null,
+
+              numItems:
+                1,
             },
           },
         );
@@ -1437,15 +1659,20 @@ export const finishAgent =
         {
           status:
             args.status,
-          updatedAt: now,
+
+          updatedAt:
+            now,
         },
       );
 
-      if (agent.caseId) {
+      if (
+        agent.caseId
+      ) {
         await ctx.db.patch(
           agent.caseId,
           {
-            updatedAt: now,
+            updatedAt:
+              now,
           },
         );
       }
@@ -1495,7 +1722,8 @@ export const cancelGeneration =
 
       if (!thread) {
         return {
-          success: false,
+          success:
+            false,
         };
       }
 
@@ -1527,8 +1755,10 @@ export const cancelGeneration =
           {
             threadId:
               args.threadId,
+
             order:
               args.order,
+
             reason:
               "User stopped Witness.",
           },
@@ -1562,7 +1792,9 @@ export const cancelGeneration =
             "pending",
         );
 
-      if (pendingAction) {
+      if (
+        pendingAction
+      ) {
         const now =
           Date.now();
 
@@ -1571,6 +1803,7 @@ export const cancelGeneration =
           {
             status:
               "cancelled",
+
             completedAt:
               now,
           },
@@ -1578,9 +1811,7 @@ export const cancelGeneration =
 
         const widgets =
           await ctx.db
-            .query(
-              "caseWidgets",
-            )
+            .query("caseWidgets")
             .withIndex(
               "by_case_id",
               q =>
@@ -1607,9 +1838,11 @@ export const cancelGeneration =
             {
               data: {
                 ...actionWidget.data,
+
                 status:
                   "cancelled",
               },
+
               updatedAt:
                 now,
             },
@@ -1622,17 +1855,21 @@ export const cancelGeneration =
         {
           status:
             "stopped",
+
           updatedAt:
             Date.now(),
         },
       );
 
-      if (thread.caseId) {
+      if (
+        thread.caseId
+      ) {
         await ctx.db.patch(
           thread.caseId,
           {
             status:
               "active",
+
             updatedAt:
               Date.now(),
           },
@@ -1640,7 +1877,8 @@ export const cancelGeneration =
       }
 
       return {
-        success: true,
+        success:
+          true,
       };
     },
   });
@@ -1677,8 +1915,7 @@ export const listMessages =
         return {
           page: [],
           isDone: true,
-          continueCursor:
-            "",
+          continueCursor: "",
           streams: {
             kind: "list" as const,
             messages: [],
@@ -1698,6 +1935,77 @@ export const listMessages =
           args,
         );
 
+      const page =
+        await Promise.all(
+          paginated.page.map(
+            async message => {
+              if (
+                message.role !==
+                "user"
+              ) {
+                return {
+                  ...message,
+                  files: [],
+                };
+              }
+
+              const order =
+                Number(
+                  message.order ?? 0,
+                );
+
+              const files =
+                await ctx.db
+                  .query("files")
+                  .withIndex(
+                    "by_thread_id_order",
+                    q =>
+                      q
+                        .eq(
+                          "threadId",
+                          args.threadId,
+                        )
+                        .eq(
+                          "messageOrder",
+                          order,
+                        ),
+                  )
+                  .collect();
+
+              return {
+                ...message,
+
+                files:
+                  await Promise.all(
+                    files.map(
+                      async file => ({
+                        id:
+                          file._id,
+
+                        storageId:
+                          file.storageId,
+
+                        filename:
+                          file.filename,
+
+                        mimeType:
+                          file.mimeType,
+
+                        size:
+                          file.size,
+
+                        url:
+                          await ctx.storage.getUrl(
+                            file.storageId,
+                          ),
+                      }),
+                    ),
+                  ),
+              };
+            },
+          ),
+        );
+
       const streams =
         await syncStreams(
           ctx,
@@ -1707,6 +2015,7 @@ export const listMessages =
 
       return {
         ...paginated,
+        page,
         streams,
       };
     },
