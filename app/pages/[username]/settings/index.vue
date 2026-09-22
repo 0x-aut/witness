@@ -4,6 +4,11 @@ definePageMeta({ layout: 'set', })
 useSeoMeta({
   title: "Settings"
 })
+
+const route = useRoute()
+const username = route.params.username as string;
+
+await navigateTo(`/${username}/settings/integrations`, { replace: true })
 </script>
 
 <template>

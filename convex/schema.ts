@@ -194,6 +194,13 @@ export default defineSchema({
     .index("by_agent_id", ["agentId"])
     .index("by_case_id", ["caseId"])
     .index("by_status", ["status"]),
+  
+  composioSessions: defineTable({
+    userId: v.string(),
+    sessionId: v.string(),
+    toolkits: v.array(v.string()),
+    updatedAt: v.number(),
+  }).index("by_user_id", ["userId"]),
 
   files: defineTable({
     userId: v.string(),

@@ -23,7 +23,13 @@ const router = useRouter();
 const username = computed(() => String(route.params.username));
 const caseId = computed(() => route.params.id as Id<"cases">);
 
-const { data: session } = await authClient.getSession();
+const session = ref<Awaited<ReturnType<typeof authClient.getSession>>["data"]>(null);
+
+onMounted(async () => {
+  const result = await authClient.getSession();
+  session.value = result.data;
+});
+
 
 const caseQuery = useConvexQuery(
   api.cases.get.get,
@@ -63,12 +69,15 @@ const caseUsers = computed(() => {
     return users;
   }
 
+  console.log(`session is: ${session.value}`)
+  console.log(session.value)
+
   return [
     {
-      id: session?.user.id ?? "current-user",
+      id: session?.value.user.id ?? "current-user",
       displayUsername:
-        session?.user.displayUsername ||
-        session?.user.name ||
+        session?.value.user.displayUsername ||
+        session?.value.user.name ||
         username.value,
     },
   ];

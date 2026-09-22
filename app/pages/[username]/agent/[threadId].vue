@@ -7,7 +7,13 @@ import { authClient } from "@@/lib/auth-client";
 
 const route = useRoute();
 
-const { data: session } = await authClient.getSession();
+const session = ref<Awaited<ReturnType<typeof authClient.getSession>>["data"]>(null);
+
+onMounted(async () => {
+  const result = await authClient.getSession();
+  session.value = result.data;
+});
+
 
 const threadId = computed(
   () => route.params.threadId as string,

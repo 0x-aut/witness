@@ -14,6 +14,7 @@
     "@ai-sdk/openai-compatible": "^3.0.53",
     "@comark/nuxt": "0.7.0",
     "@composio/core": "^0.18.1",
+    "@composio/vercel": "^0.12.1",
     "@convex-dev/agent": "^0.7.3",
     "@convex-dev/auth": "2.0.0-alpha.2",
     "@convex-dev/better-auth": "^0.12.5",

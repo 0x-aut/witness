@@ -9,7 +9,13 @@ useSeoMeta({
 
 import { authClient } from "@@/lib/auth-client";
 
-const { data: session } = await authClient.getSession();
+const session = ref<Awaited<ReturnType<typeof authClient.getSession>>["data"]>(null);
+
+onMounted(async () => {
+  const result = await authClient.getSession();
+  session.value = result.data;
+});
+
 
 </script>
 

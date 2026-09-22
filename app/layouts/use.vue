@@ -16,7 +16,12 @@ import {
 import { authClient } from "@@/lib/auth-client";
 import { api } from "@@/convex/_generated/api";
 
-const { data: session } = await authClient.getSession();
+const session = ref<Awaited<ReturnType<typeof authClient.getSession>>["data"]>(null);
+
+onMounted(async () => {
+  const result = await authClient.getSession();
+  session.value = result.data;
+});
 
 const route = useRoute();
 

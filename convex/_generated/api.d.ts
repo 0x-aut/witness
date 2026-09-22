@@ -8,11 +8,14 @@
  * @module
  */
 
+import type * as agents_actions_composio from "../agents/actions/composio.js";
 import type * as agents_chat from "../agents/chat.js";
+import type * as agents_composio from "../agents/composio.js";
 import type * as agents_messages from "../agents/messages.js";
 import type * as agents_summarize from "../agents/summarize.js";
 import type * as agents_threads from "../agents/threads.js";
 import type * as agents_tools_cases from "../agents/tools/cases.js";
+import type * as agents_tools_composio from "../agents/tools/composio.js";
 import type * as agents_tools_web from "../agents/tools/web.js";
 import type * as agents_tools_work from "../agents/tools/work.js";
 import type * as agents_witness from "../agents/witness.js";
@@ -28,7 +31,11 @@ import type * as cases_remove from "../cases/remove.js";
 import type * as cases_summarize from "../cases/summarize.js";
 import type * as cases_update from "../cases/update.js";
 import type * as cases_widgets from "../cases/widgets.js";
+import type * as composioMutations from "../composioMutations.js";
 import type * as http from "../http.js";
+import type * as integrationMutations from "../integrationMutations.js";
+import type * as integrationQueries from "../integrationQueries.js";
+import type * as integrations from "../integrations.js";
 import type * as providers_qwen from "../providers/qwen.js";
 
 import type {
@@ -38,11 +45,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "agents/actions/composio": typeof agents_actions_composio;
   "agents/chat": typeof agents_chat;
+  "agents/composio": typeof agents_composio;
   "agents/messages": typeof agents_messages;
   "agents/summarize": typeof agents_summarize;
   "agents/threads": typeof agents_threads;
   "agents/tools/cases": typeof agents_tools_cases;
+  "agents/tools/composio": typeof agents_tools_composio;
   "agents/tools/web": typeof agents_tools_web;
   "agents/tools/work": typeof agents_tools_work;
   "agents/witness": typeof agents_witness;
@@ -58,7 +68,11 @@ declare const fullApi: ApiFromModules<{
   "cases/summarize": typeof cases_summarize;
   "cases/update": typeof cases_update;
   "cases/widgets": typeof cases_widgets;
+  composioMutations: typeof composioMutations;
   http: typeof http;
+  integrationMutations: typeof integrationMutations;
+  integrationQueries: typeof integrationQueries;
+  integrations: typeof integrations;
   "providers/qwen": typeof providers_qwen;
 }>;
 

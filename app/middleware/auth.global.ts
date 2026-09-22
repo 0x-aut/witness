@@ -7,11 +7,14 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return;
   }
 
-  // if (import.meta.server) {
-  //   return;
-  // }
+  // Better Auth's session cookie lives on the Convex domain.
+  // Nuxt SSR cannot access that cross-origin cookie, so authentication
+  // must be checked in the browser.
+  if (import.meta.server) {
+    return;
+  }
 
-  const { data: session, error } = await authClient.getSession(useFetch);
+  const { data: session, error } = await authClient.getSession();
 
   if (error || !session?.user) {
     return navigateTo({

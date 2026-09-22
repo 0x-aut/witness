@@ -20,6 +20,9 @@ importers:
       '@composio/core':
         specifier: ^0.18.1
         version: 0.18.1(ws@8.21.3)(zod@4.6.5)
+      '@composio/vercel':
+        specifier: ^0.12.1
+        version: 0.12.1(@composio/core@0.18.1(ws@8.21.3)(zod@4.6.5))(ai@7.0.107(zod@4.6.5))
       '@convex-dev/agent':
         specifier: ^0.7.3
         version: 0.7.3(@ai-sdk/provider-utils@5.0.45(zod@4.6.5))(@ai-sdk/provider@4.0.17)(ai@7.0.107(zod@4.6.5))(convex-helpers@0.1.124(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(convex@1.45.0(react@19.3.0))(react@19.3.0)
@@ -400,6 +403,13 @@ packages:
     engines: {node: '>=22.22.3'}
     peerDependencies:
       zod: '>=3.25.76 <5'
+
+  '@composio/vercel@0.12.1':
+    resolution: {integrity: sha512-1SzjzFAXChLELxIu/UtP/i4ntH/ML8X6WHcXHUHkip9gEnzZ9SPgHPsBr2IWTvo85+xAfdZqIz/FUouoxwE/xA==}
+    engines: {node: '>=22.22.3'}
+    peerDependencies:
+      '@composio/core': '>=0.10.0 <1.0.0 || >=1.0.0-beta.0 <1.0.0'
+      ai: ^6.0.0 || ^7.0.0
 
   '@convex-dev/agent@0.7.3':
     resolution: {integrity: sha512-QmZ3cIaMkVvM4Ftg1sNcHAeNvFbZ2y8Ho+sEgQ+4S//OtZjhmjBf124gSEBpwMH53Wkk6cqR40QLOK9BMli26w==}
@@ -5313,6 +5323,11 @@ snapshots:
       '@cfworker/json-schema': 4.1.1
       dequal: 2.0.3
       zod: 4.6.5
+
+  '@composio/vercel@0.12.1(@composio/core@0.18.1(ws@8.21.3)(zod@4.6.5))(ai@7.0.107(zod@4.6.5))':
+    dependencies:
+      '@composio/core': 0.18.1(ws@8.21.3)(zod@4.6.5)
+      ai: 7.0.107(zod@4.6.5)
 
   '@convex-dev/agent@0.7.3(@ai-sdk/provider-utils@5.0.45(zod@4.6.5))(@ai-sdk/provider@4.0.17)(ai@7.0.107(zod@4.6.5))(convex-helpers@0.1.124(@standard-schema/spec@1.1.0)(convex@1.45.0(react@19.3.0))(react@19.3.0)(zod@4.6.5))(convex@1.45.0(react@19.3.0))(react@19.3.0)':
     dependencies:

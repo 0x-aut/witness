@@ -8,8 +8,14 @@ import {
   LassoSelect,
   Blocks,
 } from "@lucide/vue";
+import { authClient } from "@@/lib/auth-client";
 
+const session = ref<Awaited<ReturnType<typeof authClient.getSession>>["data"]>(null);
 
+onMounted(async () => {
+  const result = await authClient.getSession();
+  session.value = result.data;
+});
 
 const route = useRoute();
 
@@ -61,7 +67,7 @@ const featureNavigation = [
           <button
             type="button"
             class="flex group items-center gap-x-1 px-1.5 py-0.75 transition-colors duration-100 hover:bg-[#EBEBEB]"
-            @click="navigateTo(`agent/`)"
+            @click="navigateTo(`/${username}/agent/`)"
           >
             <div
               class="flex items-center justify-center"
