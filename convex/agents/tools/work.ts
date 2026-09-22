@@ -389,16 +389,22 @@ export const listCaseFiles = internalQuery({
       mimeType: file.mimeType,
       size: file.size,
       createdAt: file._creationTime,
+      parseStatus: file.parseStatus ?? "pending",
+      parsed: file.parseStatus === "parsed",
+      parsedSummary: file.parsedSummary ?? null,
     }));
   },
 });
 
 export const getCaseFiles = createTool({
   description: `
-List documents already attached to a Case.
-
-Use this before asking the user for a document so you can determine
-whether the required evidence is already available.
+  List documents already attached to a Case.
+  
+  Use this before asking the user for a document so you can determine
+  whether the required evidence is already available.
+  
+  When a relevant document exists and you need its actual contents,
+  use parseDocument with the returned file ID.
 `.trim(),
 
   inputSchema: z.object({

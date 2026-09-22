@@ -1,10 +1,13 @@
 "use node";
 
 import { v } from "convex/values";
-import { action } from "../_generated/server";
+import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { authComponent } from "../betterAuth/auth";
 import type { ActionCtx } from "../_generated/server";
+
+import { generateText } from "ai";
+import { getQwenModel } from "../providers/qwen";
 
 type AgentInbox = {
   inboxId: string;
@@ -155,6 +158,340 @@ async function requireInbox(
     email: inbox.email,
   };
 }
+
+async function createReplyDraft(
+  ctx: ActionCtx,
+  userId: string,
+  inboxItemId: string,
+) {
+  const item =
+    await ctx.runQuery(
+      internal.inboxQueries.getForUser,
+      {
+        id: inboxItemId as any,
+        userId,
+      },
+    );
+
+  if (
+    !item ||
+    item.types !== "email" ||
+    item.source !== "agentmail" ||
+    !item.externalId
+  ) {
+    throw new Error(
+      "Inbox item cannot be drafted.",
+    );
+  }
+
+  await ctx.runMutation(
+    internal.agentmail.saveReplyDraft,
+    {
+      userId,
+      inboxItemId:
+        item._id,
+      status: "drafting",
+    },
+  );
+
+  let caseContext = "";
+
+  if (item.caseId) {
+    try {
+      const caseData =
+        await ctx.runQuery(
+          internal.cases.get.getForAgent,
+          {
+            userId,
+            caseId:
+              item.caseId,
+          },
+        );
+
+      if (caseData) {
+        caseContext = `
+CASE CONTEXT
+Title: ${caseData.caseData.title}
+Summary: ${
+  caseData.caseData.summary ??
+  caseData.caseData.originalPrompt ??
+  ""
+}
+`.trim();
+      }
+    } catch {
+      // Drafting should still work if Case context isn't available.
+    }
+  }
+
+  const prompt = `
+You are drafting a reply for Witness, an AI agent that helps a user
+handle real-world bureaucratic and institutional problems.
+
+The human user will review and explicitly approve this draft before it is sent.
+
+Write ONLY the email body.
+
+Be:
+- concise
+- professional
+- helpful
+- factual
+- natural
+- directly responsive to the incoming email
+
+Do not:
+- invent facts
+- invent dates, policy numbers, claim numbers, payments, promises, or commitments
+- claim that the user did something they did not do
+- claim that Witness completed an external action unless the email proves it
+- mention that you are an AI
+- mention this drafting instruction
+- add a subject line
+- use markdown
+
+The reply is being sent from the Witness Agent identity.
+
+${caseContext}
+
+INCOMING EMAIL
+From: ${item.sender ?? "Unknown"}
+Subject: ${item.subject ?? "(No subject)"}
+
+${item.content}
+`.trim();
+
+  try {
+    const result =
+      await generateText({
+        model: getQwenModel(),
+        prompt,
+        maxOutputTokens: 700,
+      });
+
+    const draft = result.text
+      .trim()
+      .replace(/^```(?:text)?/i, "")
+      .replace(/```$/i, "")
+      .trim();
+
+    if (!draft) {
+      throw new Error(
+        "Witness generated an empty reply.",
+      );
+    }
+
+    await ctx.runMutation(
+      internal.agentmail.saveReplyDraft,
+      {
+        userId,
+        inboxItemId:
+          item._id,
+        status: "ready",
+        draftText: draft,
+      },
+    );
+
+    return draft;
+  } catch (error) {
+    await ctx.runMutation(
+      internal.agentmail.saveReplyDraft,
+      {
+        userId,
+        inboxItemId:
+          item._id,
+        status: "error",
+      },
+    );
+
+    throw error;
+  }
+}
+
+export const sendWitnessReply =
+  action({
+    args: {
+      inboxItemId:
+        v.id("inboxItems"),
+      text: v.string(),
+    },
+
+    handler: async (
+      ctx,
+      args,
+    ): Promise<SendResponse> => {
+      const user =
+        await authComponent.getAuthUser(
+          ctx,
+        );
+
+      if (!user) {
+        throw new Error(
+          "Unauthorized.",
+        );
+      }
+
+      const text =
+        args.text.trim();
+
+      if (!text) {
+        throw new Error(
+          "Reply cannot be empty.",
+        );
+      }
+
+      const item =
+        await ctx.runQuery(
+          internal.inboxQueries.getForUser,
+          {
+            id: args.inboxItemId,
+            userId: user._id,
+          },
+        );
+
+      if (
+        !item ||
+        item.types !== "email" ||
+        item.source !== "agentmail" ||
+        !item.externalId
+      ) {
+        throw new Error(
+          "Email cannot be replied to.",
+        );
+      }
+
+      const inbox =
+        await ctx.runQuery(
+          internal.agentmail.getUserInbox,
+          {},
+        );
+
+      if (!inbox) {
+        throw new Error(
+          "AgentMail inbox not found.",
+        );
+      }
+
+      const result =
+        await requestAgentMail<SendResponse>(
+          `/inboxes/${encodeURIComponent(
+            inbox.inboxId,
+          )}/messages/${encodeURIComponent(
+            item.externalId,
+          )}/reply`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              text,
+            }),
+          },
+        );
+
+      await ctx.runMutation(
+        internal.agentmail.markReplySent,
+        {
+          inboxItemId:
+            item._id,
+          userId:
+            user._id,
+          text,
+          outboundId:
+            result.message_id,
+          threadId:
+            result.thread_id,
+          actor:
+            "witness",
+        },
+      );
+
+      return result;
+    },
+  });
+
+export const prepareWitnessReply =
+  action({
+    args: {
+      inboxItemId:
+        v.id("inboxItems"),
+    },
+
+    handler: async (
+      ctx,
+      args,
+    ) => {
+      const user =
+        await authComponent.getAuthUser(
+          ctx,
+        );
+
+      if (!user) {
+        throw new Error(
+          "Unauthorized.",
+        );
+      }
+
+      const item =
+        await ctx.runQuery(
+          internal.inboxQueries.getForUser,
+          {
+            id: args.inboxItemId,
+            userId: user._id,
+          },
+        );
+
+      if (
+        !item ||
+        item.types !== "email" ||
+        item.source !== "agentmail"
+      ) {
+        throw new Error(
+          "Email cannot be drafted.",
+        );
+      }
+
+      if (
+        item.draftStatus === "ready" &&
+        item.draftText
+      ) {
+        return {
+          status: "ready" as const,
+          draft: item.draftText,
+        };
+      }
+
+      const draft =
+        await createReplyDraft(
+          ctx,
+          user._id,
+          args.inboxItemId,
+        );
+
+      return {
+        status: "ready" as const,
+        draft,
+      };
+    },
+  });
+
+export const generateReplyDraft =
+  internalAction({
+    args: {
+      userId: v.string(),
+      inboxItemId:
+        v.id("inboxItems"),
+    },
+
+    handler: async (
+      ctx,
+      args,
+    ) => {
+      await createReplyDraft(
+        ctx,
+        args.userId,
+        args.inboxItemId,
+      );
+    },
+  });
 
 /* -------------------------------------------------------------------------- */
 /* Inbox provisioning                                                         */

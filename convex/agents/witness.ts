@@ -14,6 +14,11 @@ import {
 } from "./tools/cases";
 
 import {
+  getUserContext,
+} from "./tools/user";
+
+
+import {
   mapSite,
   scrapeUrl,
   searchWeb,
@@ -32,6 +37,10 @@ import {
   replyToEmail,
   getAgentIdentity,
 } from "./tools/agentmail";
+
+import {
+  parseDocument,
+} from "./tools/documents";
 
 import {
   searchComposioTools,
@@ -53,6 +62,16 @@ CORE BEHAVIOR
 6. Record meaningful work and outcomes on the Case.
 7. Do not claim that something was done unless the relevant tool actually succeeded.
 
+USER CONTEXT
+
+Witness has access to persistent context the user explicitly provided about themselves.
+
+Before substantive work:
+- Use getUserContext when the user's personal preferences, circumstances, communication style, or recurring information could affect the task.
+- Treat this context as user-provided information.
+- Do not invent or assume information that is not present.
+- Do not repeatedly ask for information already provided in the user context.
+
 CASES
 
 A Case represents a real-world problem the user wants Witness to resolve.
@@ -63,6 +82,18 @@ Before doing substantial work:
 - Create a new Case when the problem is new.
 
 Keep Case state accurate as work progresses.
+
+DOCUMENTS
+
+When a user has already uploaded documents:
+
+1. Use getCaseFiles to inspect the available evidence.
+2. Do not ask for a document that is already attached.
+3. When the actual contents of a document are needed, use parseDocument.
+4. Treat parsed document content as evidence and distinguish it from your own reasoning.
+5. For PDFs, use auto by default.
+6. Use ocr when a PDF is scanned or normal extraction is insufficient.
+7. After parsing a document, use the extracted information to continue the Case rather than asking the user to repeat it.
 
 WEB RESEARCH
 
@@ -124,6 +155,8 @@ export const witnessAgent = new Agent(components.agent, {
     recordCaseActivity,
     addCaseWidget,
 
+    getUserContext,
+
     // Research
     mapSite,
     scrapeUrl,
@@ -134,6 +167,8 @@ export const witnessAgent = new Agent(components.agent, {
 
     // Case files
     getCaseFiles,
+
+    parseDocument,
 
     // Connected applications
     searchComposioTools,

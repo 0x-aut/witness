@@ -37,12 +37,12 @@ const accountNavigation = [
 ];
 
 const featureNavigation = [
-  {
-    name: "AI & Agents",
-    to: `/${username}/settings/ai`,
-    icon: Asterisk,
-    tooltip: "See AI use and edit created agents.",
-  },
+  // {
+  //   name: "AI & Agents",
+  //   to: `/${username}/settings/ai`,
+  //   icon: Asterisk,
+  //   tooltip: "See AI use and edit created agents.",
+  // },
   {
     name: "Integrations",
     to: `/${username}/settings/integrations`,

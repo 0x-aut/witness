@@ -424,25 +424,59 @@ export const onMessageReceived = internalMutation({
     // Insert without caseId first.
     // Association is performed through one path below so the
     // Case activity/widget/thread mapping stays consistent.
-    const itemId = await ctx.db.insert("inboxItems", {
-      userId: inbox.userId,
-      types: "email",
-      title:
-        message.subject ||
-        message.from_ ||
-        message.from ||
-        "New email",
-      preview,
-      content,
-      read: false,
-      starred: false,
-      source: "agentmail",
-      externalId: message.message_id,
-      threadId: message.thread_id,
-      sender: message.from_ || message.from,
-      subject: message.subject,
-      updatedAt: Date.now(),
-    });
+    const itemId =
+      await ctx.db.insert(
+        "inboxItems",
+        {
+          userId: inbox.userId,
+          types: "email",
+    
+          title:
+            message.subject ||
+            message.from_ ||
+            message.from ||
+            "New email",
+    
+          preview,
+          content,
+    
+          read: false,
+          starred: false,
+    
+          draftStatus:
+            "drafting",
+    
+          source:
+            "agentmail",
+    
+          externalId:
+            message.message_id,
+    
+          threadId:
+            message.thread_id,
+    
+          sender:
+            message.from_ ||
+            message.from,
+    
+          subject:
+            message.subject,
+    
+          updatedAt:
+            Date.now(),
+        },
+      );
+
+    await ctx.scheduler.runAfter(
+      0,
+      internal.agentmails.actions.generateReplyDraft,
+      {
+        userId:
+          inbox.userId,
+        inboxItemId:
+          itemId,
+      },
+    );
 
     if (caseId) {
       await ctx.runMutation(
@@ -454,6 +488,83 @@ export const onMessageReceived = internalMutation({
         },
       );
     }
+  },
+});
+
+export const saveReplyDraft = internalMutation({
+  args: {
+    userId: v.string(),
+    inboxItemId: v.id("inboxItems"),
+    status: v.union(
+      v.literal("drafting"),
+      v.literal("ready"),
+      v.literal("error"),
+      v.literal("sent"),
+      v.literal("dismissed"),
+    ),
+    draftText: v.optional(v.string()),
+  },
+
+  handler: async (ctx, args) => {
+    const item = await ctx.db.get(
+      args.inboxItemId,
+    );
+
+    if (
+      !item ||
+      item.userId !== args.userId
+    ) {
+      throw new Error(
+        "Inbox item not found.",
+      );
+    }
+
+    await ctx.db.patch(
+      args.inboxItemId,
+      {
+        draftStatus: args.status,
+        draftText: args.draftText,
+        updatedAt: Date.now(),
+      },
+    );
+  },
+});
+
+export const dismissReplyDraft = mutation({
+  args: {
+    inboxItemId: v.id("inboxItems"),
+  },
+
+  handler: async (ctx, args) => {
+    const user =
+      await authComponent.getAuthUser(ctx);
+
+    if (!user) {
+      throw new Error("Unauthorized.");
+    }
+
+    const item = await ctx.db.get(
+      args.inboxItemId,
+    );
+
+    if (
+      !item ||
+      item.userId !== user._id
+    ) {
+      throw new Error(
+        "Inbox item not found.",
+      );
+    }
+
+    await ctx.db.patch(
+      args.inboxItemId,
+      {
+        draftStatus: "dismissed",
+        updatedAt: Date.now(),
+      },
+    );
+
+    return true;
   },
 });
 
@@ -487,6 +598,8 @@ export const markReplySent = internalMutation({
           : "You"
       }: ${args.text.slice(0, 180)}`,
       threadId: args.threadId,
+      draftStatus: "sent",
+      draftText: undefined,
       updatedAt: now,
     });
 

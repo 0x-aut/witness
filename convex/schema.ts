@@ -139,6 +139,7 @@ export default defineSchema({
     userId: v.string(),
     caseId: v.optional(v.id("cases")),
     agentId: v.optional(v.id("agents")),
+  
     types: v.union(
       v.literal("email"),
       v.literal("alert"),
@@ -146,17 +147,30 @@ export default defineSchema({
       v.literal("agent_update"),
       v.literal("case_update"),
     ),
+  
     title: v.string(),
     preview: v.string(),
     content: v.string(),
-
+  
     read: v.boolean(),
     starred: v.boolean(),
-
+  
+    draftStatus: v.optional(
+      v.union(
+        v.literal("drafting"),
+        v.literal("ready"),
+        v.literal("error"),
+        v.literal("sent"),
+        v.literal("dismissed"),
+      ),
+    ),
+  
+    draftText: v.optional(v.string()),
+  
     source: v.optional(v.string()),
     threadId: v.optional(v.string()),
     externalId: v.optional(v.string()),
-
+  
     sender: v.optional(v.string()),
     subject: v.optional(v.string()),
     updatedAt: v.number(),
@@ -185,7 +199,8 @@ export default defineSchema({
   })
     .index("by_user_id", ["userId"])
     .index("by_thread_id", ["threadId"])
-    .index("by_case_id", ["caseId"]),
+    .index("by_case_id", ["caseId"])
+    .index("by_user_id_thread_id", ["userId", "threadId"]),
 
   userActions: defineTable({
     userId: v.string(),
@@ -238,6 +253,28 @@ export default defineSchema({
   
     threadId: v.optional(v.string()),
     messageOrder: v.optional(v.number()),
+    parseStatus: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("processing"),
+        v.literal("parsed"),
+        v.literal("error"),
+      ),
+    ),
+    
+    parsedMarkdown: v.optional(v.string()),
+    parsedSummary: v.optional(v.string()),
+    parsedAt: v.optional(v.number()),
+    parseMode: v.optional(
+      v.union(
+        v.literal("fast"),
+        v.literal("auto"),
+        v.literal("ocr"),
+      ),
+    ),
+    parseError: v.optional(v.string()),
+    parsedCharCount: v.optional(v.number()),
+    parsedTruncated: v.optional(v.boolean()),
   })
     .index("by_user_id", ["userId"])
     .index("by_case_id", ["caseId"])
@@ -246,6 +283,12 @@ export default defineSchema({
       "threadId",
       "messageOrder",
     ]),
+  
+  userContext: defineTable({
+    userId: v.string(),
+    content: v.string(),
+    updatedAt: v.number(),
+  }).index("by_user_id", ["userId"]),
 
   integrations: defineTable({
     userId: v.string(),
