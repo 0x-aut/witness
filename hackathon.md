@@ -406,6 +406,20 @@ The latest interruption work establishes the foundation for approval-gated exter
 
 ---
 
+## September 22, 2026 — Composio-powered Agent tools
+
+Composio is now integrated into the Witness Agent as a generic external-tool capability rather than as a collection of hardcoded Gmail or Google Drive tools.
+
+The Agent can search the user's connected external applications for the appropriate tool and then execute the discovered tool using the returned schema and arguments.
+
+The Composio runtime is isolated behind a dedicated Convex Node action using `"use node"`, keeping the Node-only Composio SDK outside the default Convex Agent runtime.
+
+Connected integrations are used as the capability boundary. Witness derives the available Composio toolkits from the user's connected integrations and scopes the Composio session accordingly.
+
+The Composio session is persisted per user and reused across tool searches and executions, with its toolkit scope synchronized when the user's connected integrations change.
+
+This allows the same Witness Agent tool surface to work with Gmail, Google Drive, and additional Composio-supported integrations without adding provider-specific tools to the Agent.
+
 # Current Architecture Direction
 
 The current application architecture is:
@@ -544,24 +558,28 @@ When updating this file:
 
 # Submission Checklist
 
-* [ ] Core Witness experience working
+* [ ] Core Witness end-to-end experience working
 * [x] Authentication foundation implemented
-* [ ] Convex realtime functionality demonstrated
+* [x] Convex realtime Agent chat implemented
 * [ ] OpenAI integration working
-* [ ] Firecrawl integration working
+* [x] Firecrawl integration working
 * [ ] AgentMail integration working
 * [x] Case system implemented
 * [x] Agent/task execution implemented
-* [ ] Composio-powered agent tools implemented
-* [x] User-action flow implemented
-* [ ] Inbox backend implemented
+* [x] Composio-powered agent tools implemented
+* [x] User-action / interruption flow implemented
+* [ ] Inbox backend and realtime stream implemented
 * [ ] Inbox content/detail view implemented
-* [ ] Inbox email integration implemented
-* [ ] Settings integrations implemented
-* [ ] Personalization and jurisdiction implemented
-* [ ] Vault implemented
+* [ ] Inbox email reply flow implemented
+* [x] Settings integrations implemented
+* [ ] Personalization and jurisdiction UI completed
+* [ ] Case document widget implemented
+* [ ] Additional Case widgets polished
+* [ ] Vault file storage and UI implemented
+* [ ] Vault / Case file state fully realtime
+* [ ] End-to-end Agent → Inbox → user action → resume flow demonstrated
 * [ ] Live deployment available
-* [ ] Public source repository
+* [x] Public source repository
 * [x] `hackathon.md` kept current
 * [ ] Demo video completed
 * [ ] Final submission completed
