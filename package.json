@@ -18,6 +18,7 @@
     "@convex-dev/agent": "^0.7.3",
     "@convex-dev/auth": "2.0.0-alpha.2",
     "@convex-dev/better-auth": "^0.12.5",
+    "@convex-dev/static-hosting": "^0.2.1",
     "@firecrawl/firecrawl-convex": "^0.1.1",
     "@google/genai": "^2.23.0",
     "@lisse/vue": "^0.7.2",
