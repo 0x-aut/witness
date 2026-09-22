@@ -451,6 +451,16 @@ User reply action
 AgentMail reply API
 ```
 
+### Uploaded-document persistence and Case widget layout
+
+The document interruption flow was completed through the persistence layer and verified from the user-facing chat experience.
+
+Uploaded files are persisted in Convex storage with application metadata linked to the originating Agent thread and message order, allowing the chat UI to reconstruct uploaded file widgets after navigation and reload rather than relying on transient client state.
+
+The chat UI now renders persisted uploaded files as file widgets attached to the corresponding user message. Supported images and PDFs can be opened from the chat, while other document types use a compact document representation.
+
+The Case document experience was also refined so document and website widgets share the available Case content width and wrap naturally. Website widgets use fixed-size cards rather than consuming an entire flex row, allowing multiple document and link widgets to remain on the same row until the Case column is actually full.
+
 
 # Current Architecture Direction
 

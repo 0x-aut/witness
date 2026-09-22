@@ -42,6 +42,7 @@ import type * as integrationMutations from "../integrationMutations.js";
 import type * as integrationQueries from "../integrationQueries.js";
 import type * as integrations from "../integrations.js";
 import type * as providers_qwen from "../providers/qwen.js";
+import type * as vault from "../vault.js";
 
 import type {
   ApiFromModules,
@@ -84,6 +85,7 @@ declare const fullApi: ApiFromModules<{
   integrationQueries: typeof integrationQueries;
   integrations: typeof integrations;
   "providers/qwen": typeof providers_qwen;
+  vault: typeof vault;
 }>;
 
 /**
