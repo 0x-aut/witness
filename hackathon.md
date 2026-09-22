@@ -420,6 +420,38 @@ The Composio session is persisted per user and reused across tool searches and e
 
 This allows the same Witness Agent tool surface to work with Gmail, Google Drive, and additional Composio-supported integrations without adding provider-specific tools to the Agent.
 
+
+## AgentMail inbox provisioning and communication bridge
+
+Witness now provisions a dedicated AgentMail inbox for each authenticated user automatically from the authenticated application shell.
+
+The AgentMail inbox uses the user's Witness username with a Witness-specific suffix and stores the resulting AgentMail inbox ID and address in the application database. Provisioning is idempotent so an existing user's inbox is reused rather than recreated.
+
+An AgentMail webhook is connected to the Convex HTTP endpoint. Incoming `message.received` events are passed into the Witness application through the AgentMail Convex component and mapped into the user's `inboxItems` records.
+
+Inbox email records now retain the external AgentMail message ID and thread ID, allowing Witness to identify the original message when replying.
+
+The Inbox backend now exposes authenticated realtime queries for notification records and unread counts, alongside mutations for read state, starring, and marking notifications as read.
+
+A dedicated Convex Node action was added for outbound email replies. It calls the AgentMail API directly using the application's `AGENTMAIL_API_KEY`, replies to the original AgentMail message, and records the resulting outbound message and thread IDs back into the Witness Inbox/Case state.
+
+The AgentMail communication loop is therefore now represented as:
+
+```text
+AgentMail
+  ↓
+Convex webhook
+  ↓
+Witness inboxItems
+  ↓
+Realtime Inbox
+  ↓
+User reply action
+  ↓
+AgentMail reply API
+```
+
+
 # Current Architecture Direction
 
 The current application architecture is:
@@ -568,7 +600,7 @@ When updating this file:
 * [x] Agent/task execution implemented
 * [x] Composio-powered agent tools implemented
 * [x] User-action / interruption flow implemented
-* [ ] Inbox backend and realtime stream implemented
+* [x] Inbox backend and realtime stream implemented
 * [ ] Inbox content/detail view implemented
 * [ ] Inbox email reply flow implemented
 * [x] Settings integrations implemented
