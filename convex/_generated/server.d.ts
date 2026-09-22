@@ -34,6 +34,8 @@ type Env = {
   readonly AGENTMAIL_WEBHOOK_SECRET: string;
   readonly FIRECRAWL_API_KEY: string;
   readonly FIRECRAWL_WEBHOOK_SECRET: string | undefined;
+  readonly QWEN_API_KEY: string;
+  readonly QWEN_BASE_URL: string;
 };
 
 /**

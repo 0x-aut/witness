@@ -6,14 +6,8 @@ import {
 } from "@convex-dev/better-auth/client/plugins";
 
 
-function getSiteUrl() {
-  const config = useRuntimeConfig()
- 
-  return config.public.convexSiteUrl
-}
-
 export const authClient = createAuthClient({
-  baseURL: "https://resolute-avocet-407.convex.site",
+  baseURL: "https://successful-tapir-385.convex.site",
 
   plugins: [
     usernameClient(),

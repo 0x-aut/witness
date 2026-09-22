@@ -3,6 +3,7 @@ import { httpAction } from "./_generated/server";
 import { AgentMail } from "@agentmail/convex";
 import { components, internal } from "./_generated/api";
 import { authComponent, createAuth } from "./betterAuth/auth";
+import { registerStaticRoutes } from "@convex-dev/static-hosting";
 
 const agentmail = new AgentMail(components.agentmail, {
   onMessageReceived: internal.agentmail.onMessageReceived,
@@ -21,5 +22,7 @@ http.route({
     agentmail.handleWebhook(ctx, req),
   ),
 });
+
+registerStaticRoutes(http, components.staticHosting);
 
 export default http;
