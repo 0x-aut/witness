@@ -551,25 +551,26 @@ watch(
                   !!nameError ||
                   !!usernameError
                 "
-                class="flex h-9 min-w-25 items-center justify-center gap-x-1.5 bg-[#121212] px-3.5 transition-opacity duration-100 disabled:cursor-not-allowed disabled:opacity-30"
+                class="relative flex h-9 min-w-25 items-center justify-center bg-[#121212] px-3.5 transition-opacity duration-100 disabled:cursor-not-allowed disabled:opacity-30"
                 @click="saveProfile"
               >
                 <LoaderCircle
                   v-if="saving"
                   :size="14"
                   :stroke-width="1.8"
-                  class="animate-spin text-white"
+                  class="absolute animate-spin text-white"
                 />
 
                 <Check
                   v-else-if="saveState === 'saved'"
                   :size="14"
                   :stroke-width="1.8"
-                  class="text-white"
+                  class="absolute text-white"
                 />
 
                 <span
                   class="unmodified-font-sans text-xs font-medium text-white"
+                  :class="{ 'opacity-0': saving || saveState === 'saved' }"
                 >
                   {{
                     saving
