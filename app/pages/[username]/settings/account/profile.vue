@@ -30,6 +30,8 @@ const uservalue = computed(
   () => session.value?.user ?? null,
 );
 
+const agentMail = ref("");
+
 const name = ref("");
 const username = ref("");
 
@@ -111,6 +113,7 @@ async function loadSession() {
     if (user && !hydrated.value) {
       name.value = user.name ?? "";
       username.value = user.username ?? "";
+      agentMail.value = user.agentMail ?? "";
 
       originalName.value = user.name ?? "";
       originalUsername.value = user.username ?? "";
@@ -383,6 +386,45 @@ watch(
               class="max-w-65 truncate font-sans text-sm text-[#555555]"
             >
               {{ uservalue?.email || "—" }}
+            </span>
+          </div>
+
+          <div class="h-px w-full bg-[#EEEEEE]" />
+
+          <!-- AGENT MAIL -->
+          <div
+            class="flex min-h-20 items-center justify-between gap-x-6 px-4 py-3.5"
+          >
+            <div class="flex items-center gap-x-2.5">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-full bg-[#F3F3F3]"
+              >
+                <AtSign
+                  :size="14"
+                  :stroke-width="1.7"
+                  class="text-[#777777]"
+                />
+              </div>
+
+              <div>
+                <span
+                  class="unmodified-font-sans text-sm font-medium text-[#121212]"
+                >
+                  AgentMail
+                </span>
+
+                <p
+                  class="mt-0.5 font-sans text-xs text-[#8A8A8A]"
+                >
+                  Your AgentMail address
+                </p>
+              </div>
+            </div>
+
+            <span
+              class="max-w-65 truncate font-sans text-sm text-[#555555]"
+            >
+              {{ agentMail || "—" }}
             </span>
           </div>
 
