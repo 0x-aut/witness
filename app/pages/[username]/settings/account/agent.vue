@@ -121,7 +121,7 @@ onMounted(loadContext);
 </script>
 
 <template>
-  <div class="h-full w-full overflow-y-auto">
+  <div class="h-full w-full overflow-y-auto relative">
     <div
       class="mx-auto flex min-h-full w-full max-w-175 flex-col gap-y-8 px-6 py-12"
     >
@@ -322,7 +322,7 @@ onMounted(loadContext);
                     loading ||
                     characterCount > MAX_LENGTH
                   "
-                  class="flex h-9 min-w-20 items-center justify-center gap-x-1.5 bg-[#121212] px-3.5 transition-opacity duration-100 disabled:cursor-not-allowed disabled:opacity-30"
+                  class="fixed bottom-4 right-4 flex h-9 min-w-20 items-center justify-center gap-x-1.5 bg-[#121212] px-3.5 transition-opacity duration-100 disabled:cursor-not-allowed disabled:opacity-30"
                   @click="saveContext"
                 >
                   <LoaderCircle
