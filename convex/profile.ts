@@ -65,3 +65,23 @@ export const saveAgentContext = mutation({
     });
   },
 });
+
+export const getUserProfile = query({
+  args: {},
+  
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
+
+    if (!identity) {
+      throw new Error("Unauthorized");
+    }
+
+    const user = await ctx.db.query("users").withIndex("by_id", q => q.eq("_id", identity.subject)).unique();
+    const inbox = await ctx.db.query("agentMailInboxes").withIndex("by_user_id", q => q.eq("userId", identity.subject)).unique();
+
+    return {
+      user,
+      agentMail: inbox?.email ?? ""
+    };
+  }
+});
